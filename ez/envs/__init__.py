@@ -15,11 +15,12 @@ def make_envs(game_setting, game_name, num_envs, seed, save_path=None, **kwargs)
     if game_setting == "Atari":
         _env_fn = make_atari
     elif game_setting == "Gym":
-        _env_fn = make_gym
+        # _env_fn = make_gym
+        _env_fn = make_suika
     elif game_setting == "DMC":
         _env_fn = make_dmc
-    elif game_setting == "suika":
-        _env_fn = make_suika
+    # elif game_setting == "suika":
+    # _env_fn = make_gym
     else:
         raise NotImplementedError()
 

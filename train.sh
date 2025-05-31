@@ -10,5 +10,6 @@ export IMAGEIO_FFMPEG_EXE=/tmp2/b10902118/micromamba/envs/ezv2/bin/ffmpeg
 # export MASTER_PORT='12300'
 
 # Atari
-python ez/train.py exp_config=ez/config/exp/atari.yaml 
+#python ez/train.py exp_config=ez/config/exp/atari.yaml 
 #python ez/train.py exp_config=ez/config/exp/dmc_state.yaml
+python ez/train.py exp_config=ez/config/exp/suika.yaml

@@ -200,10 +200,10 @@ def eval(
             # save data to trajectory buffer
             game_trajs[i].store_search_results(values[i], r_values[i], r_policies[i])
             game_trajs[i].append(action, obs, reward)
-            if config.env.env == "Atari":
-                game_trajs[i].snapshot_lst.append(envs[i].ale.cloneState())
-            else:
-                game_trajs[i].snapshot_lst.append(envs[i].physics.get_state())
+            # if config.env.env == "Atari":
+            #    game_trajs[i].snapshot_lst.append(envs[i].ale.cloneState())
+            # else:
+            #    game_trajs[i].snapshot_lst.append(envs[i].physics.get_state())
 
             del stack_obs_windows[i][0]
             stack_obs_windows[i].append(obs)
@@ -227,29 +227,29 @@ def eval(
             pb.update(1)
 
     [env.close() for env in envs]
-    for i in range(n_episodes):
-        writer = imageio.get_writer(video_path / f"epi_{i}_{max_steps}.mp4")
-        rewards[i][0] = sum(rewards[i])
-
-        j = 0
-        for frame, reward in zip(frames[i], rewards[i]):
-            frame = Image.fromarray(frame)
-            draw = ImageDraw.Draw(frame)
-            if config.env.game == "hopper_hop":
-                draw.text(
-                    (5, 5),
-                    f"mu={game_trajs[i].action_lst[j][0]:.2f},{game_trajs[i].action_lst[j][1]:.2f}",
-                )
-                draw.text(
-                    (5, 20),
-                    f"{game_trajs[i].action_lst[j][2]:.2f},{game_trajs[i].action_lst[j][3]:.2f}",
-                )
-                draw.text((5, 35), f"r={reward:.2f}")
-
-            frame = np.array(frame)
-            writer.append_data(frame)
-            j += 1
-        writer.close()
+    # for i in range(n_episodes):
+    #    writer = imageio.get_writer(video_path / f"epi_{i}_{max_steps}.mp4")
+    #    rewards[i][0] = sum(rewards[i])
+    #
+    #    j = 0
+    #    for frame, reward in zip(frames[i], rewards[i]):
+    #        frame = Image.fromarray(frame)
+    #        draw = ImageDraw.Draw(frame)
+    #        if config.env.game == "hopper_hop":
+    #            draw.text(
+    #                (5, 5),
+    #                f"mu={game_trajs[i].action_lst[j][0]:.2f},{game_trajs[i].action_lst[j][1]:.2f}",
+    #            )
+    #            draw.text(
+    #                (5, 20),
+    #                f"{game_trajs[i].action_lst[j][2]:.2f},{game_trajs[i].action_lst[j][3]:.2f}",
+    #            )
+    #            draw.text((5, 35), f"r={reward:.2f}")
+    #
+    #        frame = np.array(frame)
+    #        writer.append_data(frame)
+    #        j += 1
+    #    writer.close()
 
     return ep_ori_rewards
 

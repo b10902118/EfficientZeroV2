@@ -62,7 +62,7 @@ def start_ddp_trainer(rank, config):
         num_gpus=num_gpus,
         num_cpus=num_cpus,
         object_store_memory=(
-            50 * 1024 * 1024 * 1024
+            16 * 1024 * 1024 * 1024
             if config.env.image_based
             else 100 * 1024 * 1024 * 1024
         ),

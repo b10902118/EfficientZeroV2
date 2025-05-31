@@ -119,7 +119,7 @@ class SuikaEnv(gym.Env):
         # Initialize other environment variables
         self.rng = np.random.default_rng(seed=seed)
         self.shape_to_particle: dict[pymunk.Shape, Fruit] = {}
-        self.fruits: list[Fruit] = []
+        self.fruits = []
         self.score = 0
         self.game_over = False
         self.current_step = 0
@@ -294,6 +294,7 @@ class SuikaEnv(gym.Env):
 
     def _get_info(self, fruit_states):
         return {
+            "raw_reward": self.merge_score,
             "score": self.score,
             "fruit_states": fruit_states,
             "merge_count": self.merge_count,
@@ -425,7 +426,7 @@ class SuikaEnv(gym.Env):
 
         return img_array
 
-    def render_states(self, states: list[FruitState]):
+    def render_states(self, states):
         surface = pygame.Surface(self.image_size)
 
         img_array = []
@@ -440,7 +441,7 @@ class SuikaEnv(gym.Env):
     @staticmethod
     def _render_frame_in_pygame_surface(
         surface,
-        fruits: list["Fruit | FruitState"],
+        fruits,
         walls,
         human=False,
         score=None,

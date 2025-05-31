@@ -101,6 +101,7 @@ class EfficientZero(nn.Module):
             return proj.detach()
 
     def initial_inference(self, obs, training=False):
+        # print(obs.shape)
         state = self.do_representation(obs)
         values, policy = self.do_value_policy_prediction(state)
 

@@ -6,12 +6,14 @@ env:
   env: Gym
   game: Asterix
   base_seed: 0
+  n_skip: 0
   n_stack: 1
   gray_scale: True
   image_based: True
   clip_reward: False
   obs_shape: [1, 96, 96]
   episodic: True
+  max_episode_steps: 3600
 
 rl:
   discount: 0.997
@@ -139,13 +141,13 @@ model:
   reward_support:
     range: [-2, 2]
     scale: 0.01
-    env: suika
+    env: Gym
     bins: 51
     type: support   # support or symlog
   value_support:
     range: [-299, 299]
     scale: 0.5
-    env: suika
+    env: Gym
     bins: 51
     type: support   # support or symlog
 

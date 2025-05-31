@@ -43,7 +43,7 @@ ddp:
   #  port: '12355'
 
 ray:
-  single_process: False
+  single_process: false
 
 # log
 log:

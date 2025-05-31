@@ -7,20 +7,27 @@ import torch
 import numpy as np
 import torch.nn as nn
 from ez.utils.format import normalize_state
-from ez.utils.format import formalize_obs_lst, DiscreteSupport, allocate_gpu, prepare_obs_lst, symexp
+from ez.utils.format import (
+    formalize_obs_lst,
+    DiscreteSupport,
+    allocate_gpu,
+    prepare_obs_lst,
+    symexp,
+)
 
 
 class EfficientZero(nn.Module):
-    def __init__(self,
-                 representation_model,
-                 dynamics_model,
-                 reward_prediction_model,
-                 value_policy_model,
-                 projection_model,
-                 projection_head_model,
-                 config,
-                 **kwargs,
-                 ):
+    def __init__(
+        self,
+        representation_model,
+        dynamics_model,
+        reward_prediction_model,
+        value_policy_model,
+        projection_model,
+        projection_head_model,
+        config,
+        **kwargs,
+    ):
         """The basic models in EfficientZero
         Parameters
         ----------
@@ -49,8 +56,8 @@ class EfficientZero(nn.Module):
         self.projection_model = projection_model
         self.projection_head_model = projection_head_model
         self.config = config
-        self.state_norm = kwargs.get('state_norm')
-        self.value_prefix = kwargs.get('value_prefix')
+        self.state_norm = kwargs.get("state_norm")
+        self.value_prefix = kwargs.get("value_prefix")
         self.v_num = config.train.v_num
 
     def do_representation(self, obs):
@@ -70,7 +77,9 @@ class EfficientZero(nn.Module):
     def do_reward_prediction(self, next_state, reward_hidden=None):
         # use the predicted state (Namely, current state + action) for reward prediction
         if self.value_prefix:
-            value_prefix, reward_hidden = self.reward_prediction_model(next_state, reward_hidden)
+            value_prefix, reward_hidden = self.reward_prediction_model(
+                next_state, reward_hidden
+            )
             return value_prefix, reward_hidden
         else:
             reward = self.reward_prediction_model(next_state)
@@ -100,42 +109,49 @@ class EfficientZero(nn.Module):
 
         if self.v_num > 2:
             values = values[np.random.choice(self.v_num, 2, replace=False)]
-        if self.config.model.value_support.type == 'symlog':
+        if self.config.model.value_support.type == "symlog":
             output_values = symexp(values).min(0)[0]
         else:
-            output_values = DiscreteSupport.vector_to_scalar(values, **self.config.model.value_support).min(0)[0]
+            output_values = DiscreteSupport.vector_to_scalar(
+                values, **self.config.model.value_support
+            ).min(0)[0]
 
-        if self.config.env.env in ['DMC', 'Gym']:
+        if self.config.env.env in ["DMC", "Gym"]:
             output_values = output_values.clip(0, 1e5)
 
         return state, output_values, policy
 
-
     def recurrent_inference(self, state, action, reward_hidden, training=False):
         next_state = self.do_dynamics(state, action)
-        value_prefix, reward_hidden = self.do_reward_prediction(next_state, reward_hidden)
+        value_prefix, reward_hidden = self.do_reward_prediction(
+            next_state, reward_hidden
+        )
         values, policy = self.do_value_policy_prediction(next_state)
         if training:
             return next_state, value_prefix, values, policy, reward_hidden
 
         if self.v_num > 2:
             values = values[np.random.choice(self.v_num, 2, replace=False)]
-        if self.config.model.value_support.type == 'symlog':
+        if self.config.model.value_support.type == "symlog":
             output_values = symexp(values).min(0)[0]
         else:
-            output_values = DiscreteSupport.vector_to_scalar(values, **self.config.model.value_support).min(0)[0]
+            output_values = DiscreteSupport.vector_to_scalar(
+                values, **self.config.model.value_support
+            ).min(0)[0]
 
-        if self.config.env.env in ['DMC', 'Gym']:
+        if self.config.env.env in ["DMC", "Gym"]:
             output_values = output_values.clip(0, 1e5)
 
-        if self.config.model.reward_support.type == 'symlog':
+        if self.config.model.reward_support.type == "symlog":
             value_prefix = symexp(value_prefix)
         else:
-            value_prefix = DiscreteSupport.vector_to_scalar(value_prefix, **self.config.model.reward_support)
+            value_prefix = DiscreteSupport.vector_to_scalar(
+                value_prefix, **self.config.model.reward_support
+            )
         return next_state, value_prefix, output_values, policy, reward_hidden
 
-    def get_weights(self, part='none'):
-        if part == 'reward':
+    def get_weights(self, part="none"):
+        if part == "reward":
             weights = self.reward_prediction_model.state_dict()
         else:
             weights = self.state_dict()

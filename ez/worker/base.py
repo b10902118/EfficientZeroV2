@@ -12,7 +12,14 @@ from ez.data.global_storage import GlobalStorage
 
 
 class Worker:
-    def __init__(self, rank: int, agent, replay_buffer: ReplayBuffer, storage: GlobalStorage, config):
+    def __init__(
+        self,
+        rank: int,
+        agent,
+        replay_buffer: ReplayBuffer,
+        storage: GlobalStorage,
+        config,
+    ):
         self.rank = rank
         self.agent = agent
         self.replay_buffer = replay_buffer
@@ -26,7 +33,9 @@ class Worker:
         self.last_latest_model_index = -1
         self.last_log_index = -1
         self.log_info = {}
-        self.total_steps = self.config.train.training_steps + self.config.train.offline_training_steps
+        self.total_steps = (
+            self.config.train.training_steps + self.config.train.offline_training_steps
+        )
 
     def run(self, **kwargs):
         raise NotImplementedError()
@@ -45,7 +54,11 @@ class Worker:
             self.model.cuda()
             self.model.eval()
             if self.config.ray.single_process:
-                print('[Update {}] get recent model at step {}'.format(model_name, trained_steps))
+                print(
+                    "[Update {}] get recent model at step {}".format(
+                        model_name, trained_steps
+                    )
+                )
 
     def get_latest_model(self, trained_steps, model_name):
         new_model_index = trained_steps // 30
@@ -59,7 +72,7 @@ class Worker:
     def resume_model(self):
         load_path = self.config.train.load_model_path
         if os.path.exists(load_path):
-            print('[Worker] resume model from path: ', load_path)
+            print("[Worker] resume model from path: ", load_path)
             weights = torch.load(load_path)
             self.model.load_state_dict(weights)
 
@@ -75,5 +88,5 @@ class Worker:
 
     def log(self, key, val):
         if not self.log_info.get(key):
-            self.log_info['key'] = []
-        self.log_info['key'].append(val)
+            self.log_info["key"] = []
+        self.log_info["key"].append(val)

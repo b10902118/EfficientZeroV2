@@ -27,7 +27,7 @@ class BaseWrapper(gym.Wrapper):
         # format observation
         obs = self.format_obs(obs)
 
-        info['raw_reward'] = reward
+        info["raw_reward"] = reward
         if self.clip_reward:
             reward = np.sign(reward)
 

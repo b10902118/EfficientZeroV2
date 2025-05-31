@@ -17,6 +17,7 @@ from ez.envs import make_dmc
 from ez.utils.format import DiscreteSupport
 from ez.agents.models import EfficientZero
 
+
 def mlp(
     input_size,
     layer_sizes,
@@ -26,7 +27,7 @@ def mlp(
     init_zero=False,
     use_bn=True,
     p_norm=False,
-    noisy=False
+    noisy=False,
 ):
     """MLP layers
     Parameters
@@ -48,19 +49,39 @@ def mlp(
             act = activation
             if use_bn:
                 layers += [
-                    torchrl.modules.NoisyLinear(sizes[i], sizes[i + 1], std_init=0.5) if noisy else nn.Linear(sizes[i], sizes[i + 1]),
+                    (
+                        torchrl.modules.NoisyLinear(
+                            sizes[i], sizes[i + 1], std_init=0.5
+                        )
+                        if noisy
+                        else nn.Linear(sizes[i], sizes[i + 1])
+                    ),
                     nn.BatchNorm1d(sizes[i + 1]),
-                    act()
+                    act(),
                 ]
             else:
-                layers += [torchrl.modules.NoisyLinear(sizes[i], sizes[i + 1], std_init=0.5) if noisy else nn.Linear(sizes[i], sizes[i + 1]),
-                           act()]
+                layers += [
+                    (
+                        torchrl.modules.NoisyLinear(
+                            sizes[i], sizes[i + 1], std_init=0.5
+                        )
+                        if noisy
+                        else nn.Linear(sizes[i], sizes[i + 1])
+                    ),
+                    act(),
+                ]
         else:
             if p_norm == True:
                 layers += [PNorm()]
             act = output_activation
-            layers += [torchrl.modules.NoisyLinear(sizes[i], sizes[i + 1], std_init=0.5) if noisy else nn.Linear(sizes[i], sizes[i + 1]),
-                       act()]
+            layers += [
+                (
+                    torchrl.modules.NoisyLinear(sizes[i], sizes[i + 1], std_init=0.5)
+                    if noisy
+                    else nn.Linear(sizes[i], sizes[i + 1])
+                ),
+                act(),
+            ]
 
     if init_zero:
         if noisy:
@@ -68,7 +89,6 @@ def mlp(
         else:
             layers[-2].weight.data.fill_(0)
             layers[-2].bias.data.fill_(0)
-
 
     return nn.Sequential(*layers)
 
@@ -110,15 +130,24 @@ class RunningMeanStd(nn.Module):
         self.epsilon = epsilon
         self.momentum = momentum
         self.count = 1e3
-        self.register_buffer('running_mean', torch.zeros(shape))
-        self.register_buffer('running_var', torch.ones(shape))
+        self.register_buffer("running_mean", torch.zeros(shape))
+        self.register_buffer("running_var", torch.ones(shape))
 
     def forward(self, x):
         if self.training:
             mean = x.mean(dim=0)
             var = x.var(dim=0, unbiased=False)
             batch_count = x.shape[0]
-            self.running_mean, self.running_var, self.count = self.update_mean_var_count_from_moments(self.running_mean, self.running_var, self.count, mean, var, batch_count)
+            self.running_mean, self.running_var, self.count = (
+                self.update_mean_var_count_from_moments(
+                    self.running_mean,
+                    self.running_var,
+                    self.count,
+                    mean,
+                    var,
+                    batch_count,
+                )
+            )
             global_mean = self.running_mean
             global_var = self.running_var
         else:
@@ -127,7 +156,9 @@ class RunningMeanStd(nn.Module):
         x = (x - global_mean) / torch.sqrt(global_var + self.epsilon)
         return x
 
-    def update_mean_var_count_from_moments(self, mean, var, count, batch_mean, batch_var, batch_count):
+    def update_mean_var_count_from_moments(
+        self, mean, var, count, batch_mean, batch_var, batch_count
+    ):
         """Updates the mean, var and count using the previous mean, var, count and batch values."""
         delta = batch_mean - mean
         tot_count = count + batch_count
@@ -140,6 +171,7 @@ class RunningMeanStd(nn.Module):
         new_count = tot_count
 
         return new_mean, new_var, new_count
+
 
 # Encode the observations into hidden states
 class RepresentationNetwork(nn.Module):
@@ -169,12 +201,15 @@ class RepresentationNetwork(nn.Module):
             True -> Batch normalization
         """
         super().__init__()
-       
+
         self.running_mean_std = RunningMeanStd(observation_shape * n_stacked_obs)
         self.mlp = nn.Linear(observation_shape * n_stacked_obs, hidden_shape)
         self.ln = nn.LayerNorm(hidden_shape)
         self.Rep_resblocks = nn.ModuleList(
-            [ImproveResidualBlock(hidden_shape, rep_net_shape) for _ in range(num_blocks)]
+            [
+                ImproveResidualBlock(hidden_shape, rep_net_shape)
+                for _ in range(num_blocks)
+            ]
         )
 
     def forward(self, x):
@@ -247,11 +282,13 @@ class DynamicsNetwork(nn.Module):
 
         if num_blocks > 0:
             self.dyn_resblocks = nn.ModuleList(
-                [ImproveResidualBlock(hidden_shape, dyn_shape) for _ in range(num_blocks)]
+                [
+                    ImproveResidualBlock(hidden_shape, dyn_shape)
+                    for _ in range(num_blocks)
+                ]
             )
         else:
             self.dyn_resblocks = nn.ModuleList([])
-
 
     def forward(self, hidden, action, reward_hidden=None):
 
@@ -301,10 +338,13 @@ class RewardNetwork(nn.Module):
         self.reward_support_size = reward_support_size
         self.rew_resblock = ImproveResidualBlock(self.hidden_shape, self.hidden_shape)
         self.ln = nn.LayerNorm(self.hidden_shape)
-        self.rew_net = mlp(self.hidden_shape, self.rew_net_shape, self.reward_support_size,
-                           init_zero=init_zero,
-                           use_bn=use_bn)
-
+        self.rew_net = mlp(
+            self.hidden_shape,
+            self.rew_net_shape,
+            self.reward_support_size,
+            init_zero=init_zero,
+            use_bn=use_bn,
+        )
 
     def forward(self, next_state):
         next_state = self.rew_resblock(next_state)
@@ -330,9 +370,13 @@ class RewardNetworkLSTM(nn.Module):
         self.rew_resblock = ImproveResidualBlock(self.hidden_shape, self.hidden_shape)
         self.ln = nn.LayerNorm(self.hidden_shape)
         self.lstm = nn.LSTM(input_size=self.hidden_shape, hidden_size=lstm_hidden_size)
-        self.rew_net = mlp(lstm_hidden_size, self.rew_net_shape, self.reward_support_size,
-                           init_zero=init_zero,
-                           use_bn=use_bn)
+        self.rew_net = mlp(
+            lstm_hidden_size,
+            self.rew_net_shape,
+            self.reward_support_size,
+            init_zero=init_zero,
+            use_bn=use_bn,
+        )
 
     def forward(self, next_state, hidden):
         next_state = self.rew_resblock(next_state)
@@ -342,7 +386,6 @@ class RewardNetworkLSTM(nn.Module):
         reward = reward.squeeze(0)
         reward = self.rew_net(reward)
         return reward, hidden
-
 
 
 # predict the value and policy given hidden states
@@ -357,13 +400,13 @@ class ValuePolicyNetwork(nn.Module):
         init_zero=False,
         use_bn=True,
         p_norm=False,
-        policy_distr='squashed_gaussian',
+        policy_distr="squashed_gaussian",
         noisy=False,
         value_support=None,
         **kwargs
     ):
         super().__init__()
-        self.v_num = kwargs.get('v_num')
+        self.v_num = kwargs.get("v_num")
         self.hidden_shape = hidden_shape
         self.val_net_shape = val_net_shape
         self.action_shape = action_shape
@@ -380,18 +423,27 @@ class ValuePolicyNetwork(nn.Module):
         self.val_ln = nn.LayerNorm(hidden_shape)
         self.pi_ln = nn.LayerNorm(hidden_shape)
 
-
-        self.val_nets = nn.ModuleList([
-            mlp(self.hidden_shape, self.val_net_shape, full_support_size,
-                # init_zero=init_zero,
-                use_bn=use_bn,
-            )
-            for _ in range(self.v_num)])
-        self.pi_net = mlp(self.hidden_shape, self.pi_net_shape, self.action_shape * 2,
-                          init_zero=init_zero,
-                          use_bn=use_bn,
-                          p_norm=p_norm,
-                          noisy=noisy)
+        self.val_nets = nn.ModuleList(
+            [
+                mlp(
+                    self.hidden_shape,
+                    self.val_net_shape,
+                    full_support_size,
+                    # init_zero=init_zero,
+                    use_bn=use_bn,
+                )
+                for _ in range(self.v_num)
+            ]
+        )
+        self.pi_net = mlp(
+            self.hidden_shape,
+            self.pi_net_shape,
+            self.action_shape * 2,
+            init_zero=init_zero,
+            use_bn=use_bn,
+            p_norm=p_norm,
+            noisy=noisy,
+        )
 
         self.noisy = noisy
         self.value_support = value_support
@@ -417,10 +469,16 @@ class ValuePolicyNetwork(nn.Module):
         policy = self.pi_net(policy)
 
         action_space_size = policy.shape[-1] // 2
-        if self.policy_distr == 'squashed_gaussian':
-            policy[:, :action_space_size] = 5 * torch.tanh(policy[:, :action_space_size] / 5)  # soft clamp mu
-            policy[:, action_space_size:] = torch.nn.functional.softplus(
-                policy[:, action_space_size:] + self.init_std) + self.min_std  # same as Dreamer-v3
+        if self.policy_distr == "squashed_gaussian":
+            policy[:, :action_space_size] = 5 * torch.tanh(
+                policy[:, :action_space_size] / 5
+            )  # soft clamp mu
+            policy[:, action_space_size:] = (
+                torch.nn.functional.softplus(
+                    policy[:, action_space_size:] + self.init_std
+                )
+                + self.min_std
+            )  # same as Dreamer-v3
 
         return values, policy
 
@@ -459,8 +517,10 @@ class EZDMCStateAgent(Agent):
         value_size = value_support.size
         self.value_support = value_support
 
-        localtime = time.strftime('%Y-%m-%d %H:%M:%S')
-        tag = '{}-seed={}-{}/'.format(self.config.tag, self.config.env.base_seed, localtime)
+        localtime = time.strftime("%Y-%m-%d %H:%M:%S")
+        tag = "{}-seed={}-{}/".format(
+            self.config.tag, self.config.env.base_seed, localtime
+        )
 
         with open_dict(self.config):
             self.config.env.action_space_size = action_space_size
@@ -493,27 +553,66 @@ class EZDMCStateAgent(Agent):
 
     def build_model(self):
 
-        representation_model = RepresentationNetwork(self.obs_shape, self.n_stack, self.num_blocks,
-                                                     self.rep_net_shape, self.hidden_shape,
-                                                     use_bn=self.use_bn)
-        value_output_size = self.config.model.value_support.size if self.config.model.value_support.type != 'symlog' else 1
-        reward_output_size = self.config.model.reward_support.size if self.config.model.reward_support.type != 'symlog' else 1
-        dynamics_model = DynamicsNetwork(self.hidden_shape, self.action_space_size, self.num_blocks, self.dyn_shape,
-                                         self.act_embed_shape, self.rew_net_shape, reward_output_size,
-                                         use_bn=self.use_bn)
-        value_policy_model = ValuePolicyNetwork(self.hidden_shape, self.val_net_shape, self.pi_net_shape,
-                                                self.action_space_size, value_output_size,
-                                                init_zero=self.init_zero, use_bn=self.use_bn, p_norm=self.use_p_norm,
-                                                policy_distr=self.config.model.policy_distribution, noisy=self.noisy_net,
-                                                value_support=self.config.model.value_support,
-                                                v_num=self.v_num)
+        representation_model = RepresentationNetwork(
+            self.obs_shape,
+            self.n_stack,
+            self.num_blocks,
+            self.rep_net_shape,
+            self.hidden_shape,
+            use_bn=self.use_bn,
+        )
+        value_output_size = (
+            self.config.model.value_support.size
+            if self.config.model.value_support.type != "symlog"
+            else 1
+        )
+        reward_output_size = (
+            self.config.model.reward_support.size
+            if self.config.model.reward_support.type != "symlog"
+            else 1
+        )
+        dynamics_model = DynamicsNetwork(
+            self.hidden_shape,
+            self.action_space_size,
+            self.num_blocks,
+            self.dyn_shape,
+            self.act_embed_shape,
+            self.rew_net_shape,
+            reward_output_size,
+            use_bn=self.use_bn,
+        )
+        value_policy_model = ValuePolicyNetwork(
+            self.hidden_shape,
+            self.val_net_shape,
+            self.pi_net_shape,
+            self.action_space_size,
+            value_output_size,
+            init_zero=self.init_zero,
+            use_bn=self.use_bn,
+            p_norm=self.use_p_norm,
+            policy_distr=self.config.model.policy_distribution,
+            noisy=self.noisy_net,
+            value_support=self.config.model.value_support,
+            v_num=self.v_num,
+        )
 
         if self.config.model.value_prefix:
-            reward_prediction_model = RewardNetworkLSTM(self.hidden_shape, self.rew_net_shape, reward_output_size, self.config.model.lstm_hidden_size,
-                                                        init_zero=self.init_zero, use_bn=self.use_bn)
+            reward_prediction_model = RewardNetworkLSTM(
+                self.hidden_shape,
+                self.rew_net_shape,
+                reward_output_size,
+                self.config.model.lstm_hidden_size,
+                init_zero=self.init_zero,
+                use_bn=self.use_bn,
+            )
         else:
-            reward_prediction_model = RewardNetwork(self.hidden_shape, self.rew_net_shape, reward_output_size,
-                                                    init_zero=self.init_zero, use_bn=self.use_bn)
+            reward_prediction_model = RewardNetwork(
+                self.hidden_shape,
+                self.rew_net_shape,
+                reward_output_size,
+                init_zero=self.init_zero,
+                use_bn=self.use_bn,
+            )
 
         projection_model = nn.Sequential(
             nn.Linear(self.hidden_shape, self.proj_hid_shape),
@@ -523,7 +622,7 @@ class EZDMCStateAgent(Agent):
             nn.LayerNorm(self.proj_hid_shape),
             nn.ReLU(),
             nn.Linear(self.proj_hid_shape, self.proj_shape),
-            nn.LayerNorm(self.proj_shape)
+            nn.LayerNorm(self.proj_shape),
         )
         projection_head_model = nn.Sequential(
             nn.Linear(self.proj_shape, self.pred_hid_shape),
@@ -532,8 +631,16 @@ class EZDMCStateAgent(Agent):
             nn.Linear(self.pred_hid_shape, self.pred_shape),
         )
 
-        ez_model = EfficientZero(representation_model, dynamics_model, reward_prediction_model, value_policy_model,
-                                 projection_model, projection_head_model, self.config,
-                                 state_norm=self.state_norm, value_prefix=self.value_prefix)
+        ez_model = EfficientZero(
+            representation_model,
+            dynamics_model,
+            reward_prediction_model,
+            value_policy_model,
+            projection_model,
+            projection_head_model,
+            self.config,
+            state_norm=self.state_norm,
+            value_prefix=self.value_prefix,
+        )
 
         return ez_model

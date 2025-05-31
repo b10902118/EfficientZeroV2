@@ -7,6 +7,7 @@ import os
 import time
 import ray
 
+
 @ray.remote
 class WatchdogServer(object):
     def __init__(self):
@@ -34,7 +35,7 @@ def start_watchdog_server(manager):
     Start a watchdog server. Call this method remotely.
     """
     watchdog_server = WatchdogServer.remote()
-    print('[Watchdog Server] Watchdog server initialized.')
+    print("[Watchdog Server] Watchdog server initialized.")
     return watchdog_server
 
 

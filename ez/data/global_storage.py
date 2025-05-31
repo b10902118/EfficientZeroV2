@@ -9,20 +9,21 @@ import time
 import ray
 import numpy as np
 
+
 @ray.remote
 class GlobalStorage:
     def __init__(self, self_play_model, reanalyze_model, latest_model):
         self.models = {
-            'self_play': self_play_model,
-            'reanalyze': reanalyze_model,
-            'latest': latest_model
+            "self_play": self_play_model,
+            "reanalyze": reanalyze_model,
+            "latest": latest_model,
         }
         self.log_scalar = {}
         self.eval_log_scalar = {}
         self.log_distribution = {}
         self.counter = 0
         self.eval_counter = 0
-        self.best_score = - np.inf
+        self.best_score = -np.inf
         self.start = False
         # self.batch = None
 
@@ -98,6 +99,7 @@ class GlobalStorage:
         self.eval_log_scalar = {}
         self.log_distribution = {}
         return eval_scalar, scalar, distribution
+
 
 # ======================================================================================================================
 # global storage server

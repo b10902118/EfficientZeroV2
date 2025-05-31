@@ -37,7 +37,9 @@ class EZAtariAgent(Agent):
     def update_config(self):
         assert not self._update
 
-        env = make_atari(self.config.env.game, seed=0, save_path=None, **self.config.env)
+        env = make_atari(
+            self.config.env.game, seed=0, save_path=None, **self.config.env
+        )
         action_space_size = env.action_space.n
 
         obs_channel = 1 if self.config.env.gray_scale else 3
@@ -48,12 +50,16 @@ class EZAtariAgent(Agent):
         value_support = DiscreteSupport(self.config)
         value_size = value_support.size
 
-        localtime = time.strftime('%Y-%m-%d %H:%M:%S')
-        tag = '{}-seed={}-{}/'.format(self.config.tag, self.config.env.base_seed, localtime)
+        localtime = time.strftime("%Y-%m-%d %H:%M:%S")
+        tag = "{}-seed={}-{}/".format(
+            self.config.tag, self.config.env.base_seed, localtime
+        )
 
         with open_dict(self.config):
             self.config.env.action_space_size = action_space_size
-            self.config.mcts.num_top_actions = min(action_space_size, self.config.mcts.num_top_actions)
+            self.config.mcts.num_top_actions = min(
+                action_space_size, self.config.mcts.num_top_actions
+            )
             self.config.env.obs_shape[0] = obs_channel
             self.config.rl.discount **= self.config.env.n_skip
             self.config.model.reward_support.size = reward_size
@@ -69,8 +75,10 @@ class EZAtariAgent(Agent):
 
             if not self.config.mcts.use_gumbel:
                 self.config.mcts.num_simulations = 50
-            print(f'env={self.config.env.env}, game={self.config.env.game}, |A|={action_space_size}, '
-                  f'top_m={self.config.mcts.num_top_actions}, N={self.config.mcts.num_simulations}')
+            print(
+                f"env={self.config.env.env}, game={self.config.env.game}, |A|={action_space_size}, "
+                f"top_m={self.config.mcts.num_top_actions}, N={self.config.mcts.num_simulations}"
+            )
             self.config.save_path += tag
 
         self.obs_shape = copy.deepcopy(self.config.env.obs_shape)
@@ -82,43 +90,86 @@ class EZAtariAgent(Agent):
 
     def build_model(self):
         if self.down_sample:
-            state_shape = (self.num_channels, math.ceil(self.obs_shape[1] / 16), math.ceil(self.obs_shape[2] / 16))
+            state_shape = (
+                self.num_channels,
+                math.ceil(self.obs_shape[1] / 16),
+                math.ceil(self.obs_shape[2] / 16),
+            )
         else:
             state_shape = (self.num_channels, self.obs_shape[1], self.obs_shape[2])
 
         state_dim = state_shape[0] * state_shape[1] * state_shape[2]
         flatten_size = self.reduced_channels * state_shape[1] * state_shape[2]
 
-        representation_model = RepresentationNetwork(self.input_shape, self.num_blocks, self.num_channels, self.down_sample)
+        representation_model = RepresentationNetwork(
+            self.input_shape, self.num_blocks, self.num_channels, self.down_sample
+        )
 
-        dynamics_model = DynamicsNetwork(self.num_blocks, self.num_channels, self.action_space_size,
-                                         action_embedding=self.action_embedding, action_embedding_dim=self.action_embedding_dim)
+        dynamics_model = DynamicsNetwork(
+            self.num_blocks,
+            self.num_channels,
+            self.action_space_size,
+            action_embedding=self.action_embedding,
+            action_embedding_dim=self.action_embedding_dim,
+        )
 
-        value_policy_model = ValuePolicyNetwork(self.num_blocks, self.num_channels, self.reduced_channels, flatten_size,
-                                                     self.fc_layers, self.config.model.value_support.size,
-                                                     self.action_space_size, self.init_zero,
-                                                     value_policy_detach=self.value_policy_detach,
-                                                     v_num=self.config.train.v_num)
+        value_policy_model = ValuePolicyNetwork(
+            self.num_blocks,
+            self.num_channels,
+            self.reduced_channels,
+            flatten_size,
+            self.fc_layers,
+            self.config.model.value_support.size,
+            self.action_space_size,
+            self.init_zero,
+            value_policy_detach=self.value_policy_detach,
+            v_num=self.config.train.v_num,
+        )
 
         reward_output_size = self.config.model.reward_support.size
         if self.value_prefix:
-            reward_prediction_model = SupportLSTMNetwork(0, self.num_channels, self.reduced_channels,
-                                           flatten_size, self.fc_layers, reward_output_size,
-                                           self.config.model.lstm_hidden_size, self.init_zero)
+            reward_prediction_model = SupportLSTMNetwork(
+                0,
+                self.num_channels,
+                self.reduced_channels,
+                flatten_size,
+                self.fc_layers,
+                reward_output_size,
+                self.config.model.lstm_hidden_size,
+                self.init_zero,
+            )
         else:
-            reward_prediction_model = SupportNetwork(self.num_blocks, self.num_channels, self.reduced_channels,
-                                           flatten_size, self.fc_layers, reward_output_size,
-                                           self.init_zero)
+            reward_prediction_model = SupportNetwork(
+                self.num_blocks,
+                self.num_channels,
+                self.reduced_channels,
+                flatten_size,
+                self.fc_layers,
+                reward_output_size,
+                self.init_zero,
+            )
 
         projection_layers = self.config.model.projection_layers
         head_layers = self.config.model.prjection_head_layers
         assert projection_layers[1] == head_layers[1]
 
-        projection_model = ProjectionNetwork(state_dim, projection_layers[0], projection_layers[1])
-        projection_head_model = ProjectionHeadNetwork(projection_layers[1], head_layers[0], head_layers[1])
+        projection_model = ProjectionNetwork(
+            state_dim, projection_layers[0], projection_layers[1]
+        )
+        projection_head_model = ProjectionHeadNetwork(
+            projection_layers[1], head_layers[0], head_layers[1]
+        )
 
-        ez_model = EfficientZero(representation_model, dynamics_model, reward_prediction_model, value_policy_model,
-                                 projection_model, projection_head_model, self.config,
-                                 state_norm=self.state_norm, value_prefix=self.value_prefix)
+        ez_model = EfficientZero(
+            representation_model,
+            dynamics_model,
+            reward_prediction_model,
+            value_policy_model,
+            projection_model,
+            projection_head_model,
+            self.config,
+            state_norm=self.state_norm,
+            value_prefix=self.value_prefix,
+        )
 
         return ez_model

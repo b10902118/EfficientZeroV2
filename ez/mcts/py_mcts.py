@@ -19,8 +19,8 @@ class MinMaxStats:
         :param min_value_bound:
         :param max_value_bound:
         """
-        self.maximum = min_value_bound if min_value_bound else -float('inf')
-        self.minimum = max_value_bound if max_value_bound else float('inf')
+        self.maximum = min_value_bound if min_value_bound else -float("inf")
+        self.minimum = max_value_bound if max_value_bound else float("inf")
         self.minmax_delta = minmax_delta
 
     def update(self, value: float):
@@ -34,14 +34,16 @@ class MinMaxStats:
             elif value <= self.minimum:
                 value = self.minimum
             # We normalize only when we have set the maximum and minimum values.
-            value = (value - self.minimum) / max(self.maximum - self.minimum, self.minmax_delta)  # [-1, 1] range
+            value = (value - self.minimum) / max(
+                self.maximum - self.minimum, self.minmax_delta
+            )  # [-1, 1] range
 
         value = max(min(value, 1), 0)
         return value
 
     def clear(self):
-        self.maximum = -float('inf')
-        self.minimum = float('inf')
+        self.maximum = -float("inf")
+        self.minimum = float("inf")
 
 
 class Node:
@@ -60,7 +62,7 @@ class Node:
 
         self.depth = parent.depth + 1 if parent else 0
         self.visit_count = 0
-        self.value_prefix = 0.
+        self.value_prefix = 0.0
 
         self.state = None
         self.reward_hidden = None
@@ -72,9 +74,16 @@ class Node:
         self.epsilon = 1e-6
 
         assert Node.num_actions > 1
-        assert 0 < Node.discount <= 1.
+        assert 0 < Node.discount <= 1.0
 
-    def expand(self, state, value_prefix, policy_logits, reward_hidden=None, reset_value_prefix=True):
+    def expand(
+        self,
+        state,
+        value_prefix,
+        policy_logits,
+        reward_hidden=None,
+        reset_value_prefix=True,
+    ):
         self.state = state
         self.reward_hidden = reward_hidden
         self.value_prefix = value_prefix
@@ -112,7 +121,9 @@ class Node:
             v_mix = self.get_value()
         else:
             visit_sum = self.get_children_visit_sum()
-            v_mix = (1. / (1. + visit_sum)) * (self.get_value() + visit_sum * pi_qsa_sum / pi_sum)
+            v_mix = (1.0 / (1.0 + visit_sum)) * (
+                self.get_value() + visit_sum * pi_qsa_sum / pi_sum
+            )
 
         return v_mix
 
@@ -190,18 +201,18 @@ class Node:
             return
 
         for i in range(self.depth):
-            print(info[i], end='')
+            print(info[i], end="")
 
         is_leaf = self.is_leaf()
         if is_leaf:
-            print('└──', end='')
+            print("└──", end="")
         else:
-            print('├──', end='')
+            print("├──", end="")
 
         print(self.__str__())
 
         for child in self.get_expanded_children():
-            c = '   ' if is_leaf else '|    '
+            c = "   " if is_leaf else "|    "
             info.append(c)
             child.print(info)
 
@@ -211,8 +222,14 @@ class Node:
         else:
             action = self.action
 
-        s = '[a={} reset={} (n={}, vp={:.3f} r={:.3f}, v={:.3f})]' \
-            ''.format(action, self.reset_value_prefix, self.visit_count, self.value_prefix, self.get_reward(), self.get_value())
+        s = "[a={} reset={} (n={}, vp={:.3f} r={:.3f}, v={:.3f})]" "".format(
+            action,
+            self.reset_value_prefix,
+            self.visit_count,
+            self.value_prefix,
+            self.get_reward(),
+            self.get_value(),
+        )
         return s
 
 
@@ -220,7 +237,15 @@ class PyMCTS(MCTS):
     def __init__(self, num_actions, **kwargs):
         super().__init__(num_actions, **kwargs)
 
-    def sample_actions(self, policy, add_noise=True, temperature=1.0, input_noises=None, input_dist=None, input_actions=None):
+    def sample_actions(
+        self,
+        policy,
+        add_noise=True,
+        temperature=1.0,
+        input_noises=None,
+        input_dist=None,
+        input_actions=None,
+    ):
         batch_size = policy.shape[0]
         n_policy = self.policy_action_num
         n_random = self.random_action_num
@@ -244,7 +269,9 @@ class PyMCTS(MCTS):
         if add_noise:
             if input_noises is None:
                 # random_distr = Dist(mean, self.std_magnification * std * temperature)       # more flatten gaussian policy
-                random_distr = Dist(mean, std_magnification * std)  # more flatten gaussian policy
+                random_distr = Dist(
+                    mean, std_magnification * std
+                )  # more flatten gaussian policy
                 # random_distr = ContDist(
                 #     torch.distributions.independent.Independent(torch.distributions.normal.Normal(mean, std_magnification * std), 1))
                 random_actions = random_distr.sample(torch.Size([n_random]))
@@ -260,7 +287,10 @@ class PyMCTS(MCTS):
                 random_actions += noises
 
         if input_dist is not None:
-            refined_mean, refined_std = input_dist[:, :action_dim], input_dist[:, action_dim:]
+            refined_mean, refined_std = (
+                input_dist[:, :action_dim],
+                input_dist[:, action_dim:],
+            )
             refined_distr = Dist(refined_mean, refined_std)
             refined_actions = refined_distr.sample(torch.Size([n_policy + n_random]))
             refined_actions = refined_actions.permute(1, 0, 2)
@@ -270,8 +300,12 @@ class PyMCTS(MCTS):
 
             if add_noise:
                 if input_noises is None:
-                    refined_random_distr = Dist(refined_mean, std_magnification * refined_std)
-                    refined_random_actions = refined_random_distr.sample(torch.Size([n_random]))
+                    refined_random_distr = Dist(
+                        refined_mean, std_magnification * refined_std
+                    )
+                    refined_random_actions = refined_random_distr.sample(
+                        torch.Size([n_random])
+                    )
                     refined_random_actions = refined_random_actions.permute(1, 0, 2)
                 else:
                     noises = torch.from_numpy(input_noises).float().cuda()
@@ -281,7 +315,9 @@ class PyMCTS(MCTS):
         if input_actions is not None:
             all_actions = torch.from_numpy(input_actions).float().cuda()
         if input_dist is not None:
-            all_actions = torch.cat((all_actions, refined_policy_actions, refined_random_actions), dim=1)
+            all_actions = torch.cat(
+                (all_actions, refined_policy_actions, refined_random_actions), dim=1
+            )
         # all_actions[:, 0, :] = mean     # add mean as one of candidate
         all_actions = all_actions.clip(-0.999, 0.999)
 
@@ -289,20 +325,43 @@ class PyMCTS(MCTS):
         probs = None
         return all_actions, probs
 
-    def search_continuous(self, model, batch_size, root_states, root_values, root_policy_logits,
-                          use_gumble_noise=False, temperature=1.0, verbose=0, **kwargs):
+    def search_continuous(
+        self,
+        model,
+        batch_size,
+        root_states,
+        root_values,
+        root_policy_logits,
+        use_gumble_noise=False,
+        temperature=1.0,
+        verbose=0,
+        **kwargs
+    ):
 
-        root_sampled_actions, policy_priors = self.sample_actions(root_policy_logits, True, temperature,
-                                                                  None, input_dist=None,
-                                                                  input_actions=None)
+        root_sampled_actions, policy_priors = self.sample_actions(
+            root_policy_logits,
+            True,
+            temperature,
+            None,
+            input_dist=None,
+            input_actions=None,
+        )
         sampled_action_num = root_sampled_actions.shape[1]
         # preparation
-        Node.set_static_attributes(self.discount, self.num_actions)  # set static parameters of MCTS
-        roots = [Node(prior=1) for _ in range(batch_size)]          # set root nodes for the batch
+        Node.set_static_attributes(
+            self.discount, self.num_actions
+        )  # set static parameters of MCTS
+        roots = [
+            Node(prior=1) for _ in range(batch_size)
+        ]  # set root nodes for the batch
         # expand the roots and update the statistics
-        for root, state, value, logit in zip(roots, root_states, root_values, root_policy_logits):
-            root_reward_hidden = (torch.zeros(1, self.lstm_hidden_size).cuda().float(),
-                                  torch.zeros(1, self.lstm_hidden_size).cuda().float())
+        for root, state, value, logit in zip(
+            roots, root_states, root_values, root_policy_logits
+        ):
+            root_reward_hidden = (
+                torch.zeros(1, self.lstm_hidden_size).cuda().float(),
+                torch.zeros(1, self.lstm_hidden_size).cuda().float(),
+            )
             if not self.value_prefix:
                 root_reward_hidden = None
 
@@ -310,11 +369,15 @@ class PyMCTS(MCTS):
             root.estimated_value_lst.append(value)
             root.visit_count += 1
         # save the min and max value of the tree nodes
-        value_min_max_lst = [MinMaxStats(self.value_minmax_delta) for _ in range(batch_size)]
+        value_min_max_lst = [
+            MinMaxStats(self.value_minmax_delta) for _ in range(batch_size)
+        ]
 
         # set gumble noise (during training)
         if use_gumble_noise:
-            gumble_noises = np.random.gumbel(0, 1, (batch_size, self.num_actions)) * temperature
+            gumble_noises = (
+                np.random.gumbel(0, 1, (batch_size, self.num_actions)) * temperature
+            )
         else:
             gumble_noises = np.zeros((batch_size, self.num_actions))
 
@@ -324,44 +387,52 @@ class PyMCTS(MCTS):
             np.set_printoptions(precision=3)
             assert batch_size == 1
 
-            self.log('Gumble Noise: {}'.format(gumble_noises), verbose=1)
+            self.log("Gumble Noise: {}".format(gumble_noises), verbose=1)
 
         action_pool = [root_sampled_actions]
         # search for N iterations
         mcts_info = {}
         for simulation_idx in range(self.num_simulations):
-            leaf_nodes = []                                         # leaf node of the tree of the current simulation
-            last_actions = []                                       # the chosen action of the leaf node
-            current_states = []                                     # the hidden state of the leaf node
-            reward_hidden = ([], [])                        # the reward hidden of lstm
-            search_paths = []                                       # the nodes along the current search iteration
+            leaf_nodes = []  # leaf node of the tree of the current simulation
+            last_actions = []  # the chosen action of the leaf node
+            current_states = []  # the hidden state of the leaf node
+            reward_hidden = ([], [])  # the reward hidden of lstm
+            search_paths = []  # the nodes along the current search iteration
 
-            self.log('Iteration {} \t'.format(simulation_idx), verbose=2, iteration_begin=True)
+            self.log(
+                "Iteration {} \t".format(simulation_idx),
+                verbose=2,
+                iteration_begin=True,
+            )
             if self.verbose > 1:
-                self.log('Tree:', verbose=2)
+                self.log("Tree:", verbose=2)
                 roots[0].print([])
 
             # select action for the roots
             trajectories = []
             for idx in range(batch_size):
-                node = roots[idx]                                   # search begins from the root node
-                search_path = [node]                                # save the search path from root to leaf
-                value_min_max = value_min_max_lst[idx]              # record the min, max value of the tree states
+                node = roots[idx]  # search begins from the root node
+                search_path = [node]  # save the search path from root to leaf
+                value_min_max = value_min_max_lst[
+                    idx
+                ]  # record the min, max value of the tree states
 
                 # search from the root until a leaf unexpanded node
                 action = -1
                 select_action_lst = []
                 while node.is_expanded():
-                    action = self.select_action(node, value_min_max, gumble_noises, simulation_idx)
+                    action = self.select_action(
+                        node, value_min_max, gumble_noises, simulation_idx
+                    )
                     node = node.children[action]
                     search_path.append(node)
                     select_action_lst.append(action)
 
                 # assert action >= 0
 
-                self.log('selection path -> {}'.format(select_action_lst), verbose=4)
+                self.log("selection path -> {}".format(select_action_lst), verbose=4)
                 # update some statistics
-                parent = search_path[-2]                            # get the parent of the leaf node
+                parent = search_path[-2]  # get the parent of the leaf node
                 current_states.append(parent.state)
                 reward_hidden[0].append(parent.reward_hidden[0])
                 reward_hidden[1].append(parent.reward_hidden[1])
@@ -373,26 +444,37 @@ class PyMCTS(MCTS):
 
             # inference state, reward, value, policy given the current state
             current_states = torch.stack(current_states, dim=0)
-            reward_hidden = (torch.stack(reward_hidden[0], dim=1),
-                             torch.stack(reward_hidden[1], dim=1))
-            last_actions = torch.from_numpy(np.asarray(last_actions)).cuda().long().unsqueeze(1)
-            next_states, next_value_prefixes, next_values, next_logits, reward_hidden = self.update_statistics(
-                prediction=True,                                    # use model prediction instead of env simulation
-                model=model,                                        # model
-                states=current_states,                              # current states
-                actions=last_actions,                               # last actions
-                reward_hidden=reward_hidden,                        # reward hidden
+            reward_hidden = (
+                torch.stack(reward_hidden[0], dim=1),
+                torch.stack(reward_hidden[1], dim=1),
+            )
+            last_actions = (
+                torch.from_numpy(np.asarray(last_actions)).cuda().long().unsqueeze(1)
+            )
+            (
+                next_states,
+                next_value_prefixes,
+                next_values,
+                next_logits,
+                reward_hidden,
+            ) = self.update_statistics(
+                prediction=True,  # use model prediction instead of env simulation
+                model=model,  # model
+                states=current_states,  # current states
+                actions=last_actions,  # last actions
+                reward_hidden=reward_hidden,  # reward hidden
             )
 
-            leaf_sampled_actions, leaf_policy_priors = \
-                self.sample_actions(next_logits, add_noise=False,
-                                    # input_actions=root_sampled_actions.detach().cpu().numpy()     # FOR TEST SEARCH ALIGHMENT ONLY !!
-                                    )
+            leaf_sampled_actions, leaf_policy_priors = self.sample_actions(
+                next_logits,
+                add_noise=False,
+                # input_actions=root_sampled_actions.detach().cpu().numpy()     # FOR TEST SEARCH ALIGHMENT ONLY !!
+            )
             action_pool.append(leaf_sampled_actions)
 
             # change value prefix to reward
             search_lens = [len(search_path) for search_path in search_paths]
-            reset_idx = (np.array(search_lens) % self.lstm_horizon_len == 0)
+            reset_idx = np.array(search_lens) % self.lstm_horizon_len == 0
             if self.value_prefix:
                 reward_hidden[0][:, reset_idx, :] = 0
                 reward_hidden[1][:, reset_idx, :] = 0
@@ -401,48 +483,93 @@ class PyMCTS(MCTS):
             # expand the leaf node and backward for statistics update
             for idx in range(batch_size):
                 # expand the leaf node
-                leaf_nodes[idx].expand(next_states[idx], next_value_prefixes[idx], next_logits[idx],
-                                       (reward_hidden[0][0][idx].unsqueeze(0), reward_hidden[1][0][idx].unsqueeze(0)),
-                                       to_reset_lst[idx])
+                leaf_nodes[idx].expand(
+                    next_states[idx],
+                    next_value_prefixes[idx],
+                    next_logits[idx],
+                    (
+                        reward_hidden[0][0][idx].unsqueeze(0),
+                        reward_hidden[1][0][idx].unsqueeze(0),
+                    ),
+                    to_reset_lst[idx],
+                )
                 # backward from the leaf node to the root
-                self.back_propagate(search_paths[idx], next_values[idx], value_min_max_lst[idx])
+                self.back_propagate(
+                    search_paths[idx], next_values[idx], value_min_max_lst[idx]
+                )
 
             if self.ready_for_next_gumble_phase(simulation_idx):
                 # final selection
                 for idx in range(batch_size):
-                    root, gumble_noise, value_min_max = roots[idx], gumble_noises[idx], value_min_max_lst[idx]
+                    root, gumble_noise, value_min_max = (
+                        roots[idx],
+                        gumble_noises[idx],
+                        value_min_max_lst[idx],
+                    )
                     self.sequential_halving(root, gumble_noise, value_min_max)
-                self.log('change to phase: {}, top m action -> {}'
-                             ''.format(self.current_phase, self.current_num_top_actions), verbose=3)
+                self.log(
+                    "change to phase: {}, top m action -> {}"
+                    "".format(self.current_phase, self.current_num_top_actions),
+                    verbose=3,
+                )
 
                 # obtain the final results and infos
         search_root_values = np.asarray([root.get_value() for root in roots])
         search_root_policies = []
         for root, value_min_max in zip(roots, value_min_max_lst):
-            improved_policy = root.get_improved_policy(self.get_transformed_completed_Qs(root, value_min_max))
+            improved_policy = root.get_improved_policy(
+                self.get_transformed_completed_Qs(root, value_min_max)
+            )
             search_root_policies.append(improved_policy)
         search_root_policies = np.asarray(search_root_policies)
-        search_best_actions = np.asarray([root.selected_children_idx[0] for root in roots])
+        search_best_actions = np.asarray(
+            [root.selected_children_idx[0] for root in roots]
+        )
 
         if self.verbose:
-            self.log('Final Tree:', verbose=1)
+            self.log("Final Tree:", verbose=1)
             roots[0].print([])
-            self.log('search root value -> \t\t {} \n'
-                     'search root policy -> \t\t {} \n'
-                     'search best action -> \t\t {}'
-                     ''.format(search_root_values[0], search_root_policies[0], search_best_actions[0]),
-                     verbose=1, iteration_end=True)
+            self.log(
+                "search root value -> \t\t {} \n"
+                "search root policy -> \t\t {} \n"
+                "search best action -> \t\t {}"
+                "".format(
+                    search_root_values[0],
+                    search_root_policies[0],
+                    search_best_actions[0],
+                ),
+                verbose=1,
+                iteration_end=True,
+            )
         return search_root_values, search_root_policies, search_best_actions, mcts_info
 
-    def search(self, model, batch_size, root_states, root_values, root_policy_logits,
-               use_gumble_noise=True, temperature=1.0, verbose=0, **kwargs):
+    def search(
+        self,
+        model,
+        batch_size,
+        root_states,
+        root_values,
+        root_policy_logits,
+        use_gumble_noise=True,
+        temperature=1.0,
+        verbose=0,
+        **kwargs
+    ):
         # preparation
-        Node.set_static_attributes(self.discount, self.num_actions)  # set static parameters of MCTS
-        roots = [Node(prior=1) for _ in range(batch_size)]          # set root nodes for the batch
+        Node.set_static_attributes(
+            self.discount, self.num_actions
+        )  # set static parameters of MCTS
+        roots = [
+            Node(prior=1) for _ in range(batch_size)
+        ]  # set root nodes for the batch
         # expand the roots and update the statistics
-        for root, state, value, logit in zip(roots, root_states, root_values, root_policy_logits):
-            root_reward_hidden = (torch.zeros(1, self.lstm_hidden_size).cuda().float(),
-                                  torch.zeros(1, self.lstm_hidden_size).cuda().float())
+        for root, state, value, logit in zip(
+            roots, root_states, root_values, root_policy_logits
+        ):
+            root_reward_hidden = (
+                torch.zeros(1, self.lstm_hidden_size).cuda().float(),
+                torch.zeros(1, self.lstm_hidden_size).cuda().float(),
+            )
             if not self.value_prefix:
                 root_reward_hidden = None
 
@@ -450,11 +577,15 @@ class PyMCTS(MCTS):
             root.estimated_value_lst.append(value)
             root.visit_count += 1
         # save the min and max value of the tree nodes
-        value_min_max_lst = [MinMaxStats(self.value_minmax_delta) for _ in range(batch_size)]
+        value_min_max_lst = [
+            MinMaxStats(self.value_minmax_delta) for _ in range(batch_size)
+        ]
 
         # set gumble noise (during training)
         if use_gumble_noise:
-            gumble_noises = np.random.gumbel(0, 1, (batch_size, self.num_actions)) * temperature
+            gumble_noises = (
+                np.random.gumbel(0, 1, (batch_size, self.num_actions)) * temperature
+            )
         else:
             gumble_noises = np.zeros((batch_size, self.num_actions))
 
@@ -464,43 +595,51 @@ class PyMCTS(MCTS):
             np.set_printoptions(precision=3)
             assert batch_size == 1
 
-            self.log('Gumble Noise: {}'.format(gumble_noises), verbose=1)
+            self.log("Gumble Noise: {}".format(gumble_noises), verbose=1)
 
         # search for N iterations
         mcts_info = {}
         for simulation_idx in range(self.num_simulations):
-            leaf_nodes = []                                         # leaf node of the tree of the current simulation
-            last_actions = []                                       # the chosen action of the leaf node
-            current_states = []                                     # the hidden state of the leaf node
-            reward_hidden = ([], [])                        # the reward hidden of lstm
-            search_paths = []                                       # the nodes along the current search iteration
+            leaf_nodes = []  # leaf node of the tree of the current simulation
+            last_actions = []  # the chosen action of the leaf node
+            current_states = []  # the hidden state of the leaf node
+            reward_hidden = ([], [])  # the reward hidden of lstm
+            search_paths = []  # the nodes along the current search iteration
 
-            self.log('Iteration {} \t'.format(simulation_idx), verbose=2, iteration_begin=True)
+            self.log(
+                "Iteration {} \t".format(simulation_idx),
+                verbose=2,
+                iteration_begin=True,
+            )
             if self.verbose > 1:
-                self.log('Tree:', verbose=2)
+                self.log("Tree:", verbose=2)
                 roots[0].print([])
 
             # select action for the roots
             trajectories = []
             for idx in range(batch_size):
-                node = roots[idx]                                   # search begins from the root node
-                search_path = [node]                                # save the search path from root to leaf
-                value_min_max = value_min_max_lst[idx]              # record the min, max value of the tree states
+                node = roots[idx]  # search begins from the root node
+                search_path = [node]  # save the search path from root to leaf
+                value_min_max = value_min_max_lst[
+                    idx
+                ]  # record the min, max value of the tree states
 
                 # search from the root until a leaf unexpanded node
                 action = -1
                 select_action_lst = []
                 while node.is_expanded():
-                    action = self.select_action(node, value_min_max, gumble_noises, simulation_idx)
+                    action = self.select_action(
+                        node, value_min_max, gumble_noises, simulation_idx
+                    )
                     node = node.children[action]
                     search_path.append(node)
                     select_action_lst.append(action)
 
                 assert action >= 0
 
-                self.log('selection path -> {}'.format(select_action_lst), verbose=4)
+                self.log("selection path -> {}".format(select_action_lst), verbose=4)
                 # update some statistics
-                parent = search_path[-2]                            # get the parent of the leaf node
+                parent = search_path[-2]  # get the parent of the leaf node
                 current_states.append(parent.state)
                 reward_hidden[0].append(parent.reward_hidden[0])
                 reward_hidden[1].append(parent.reward_hidden[1])
@@ -512,20 +651,30 @@ class PyMCTS(MCTS):
 
             # inference state, reward, value, policy given the current state
             current_states = torch.stack(current_states, dim=0)
-            reward_hidden = (torch.stack(reward_hidden[0], dim=1),
-                             torch.stack(reward_hidden[1], dim=1))
-            last_actions = torch.from_numpy(np.asarray(last_actions)).cuda().long().unsqueeze(1)
-            next_states, next_value_prefixes, next_values, next_logits, reward_hidden = self.update_statistics(
-                prediction=True,                                    # use model prediction instead of env simulation
-                model=model,                                        # model
-                states=current_states,                              # current states
-                actions=last_actions,                               # last actions
-                reward_hidden=reward_hidden,                        # reward hidden
+            reward_hidden = (
+                torch.stack(reward_hidden[0], dim=1),
+                torch.stack(reward_hidden[1], dim=1),
+            )
+            last_actions = (
+                torch.from_numpy(np.asarray(last_actions)).cuda().long().unsqueeze(1)
+            )
+            (
+                next_states,
+                next_value_prefixes,
+                next_values,
+                next_logits,
+                reward_hidden,
+            ) = self.update_statistics(
+                prediction=True,  # use model prediction instead of env simulation
+                model=model,  # model
+                states=current_states,  # current states
+                actions=last_actions,  # last actions
+                reward_hidden=reward_hidden,  # reward hidden
             )
 
             # change value prefix to reward
             search_lens = [len(search_path) for search_path in search_paths]
-            reset_idx = (np.array(search_lens) % self.lstm_horizon_len == 0)
+            reset_idx = np.array(search_lens) % self.lstm_horizon_len == 0
             if self.value_prefix:
                 reward_hidden[0][:, reset_idx, :] = 0
                 reward_hidden[1][:, reset_idx, :] = 0
@@ -534,37 +683,64 @@ class PyMCTS(MCTS):
             # expand the leaf node and backward for statistics update
             for idx in range(batch_size):
                 # expand the leaf node
-                leaf_nodes[idx].expand(next_states[idx], next_value_prefixes[idx], next_logits[idx],
-                                       (reward_hidden[0][0][idx].unsqueeze(0), reward_hidden[1][0][idx].unsqueeze(0)),
-                                       to_reset_lst[idx])
+                leaf_nodes[idx].expand(
+                    next_states[idx],
+                    next_value_prefixes[idx],
+                    next_logits[idx],
+                    (
+                        reward_hidden[0][0][idx].unsqueeze(0),
+                        reward_hidden[1][0][idx].unsqueeze(0),
+                    ),
+                    to_reset_lst[idx],
+                )
                 # backward from the leaf node to the root
-                self.back_propagate(search_paths[idx], next_values[idx], value_min_max_lst[idx])
+                self.back_propagate(
+                    search_paths[idx], next_values[idx], value_min_max_lst[idx]
+                )
 
             if self.ready_for_next_gumble_phase(simulation_idx):
                 # final selection
                 for idx in range(batch_size):
-                    root, gumble_noise, value_min_max = roots[idx], gumble_noises[idx], value_min_max_lst[idx]
+                    root, gumble_noise, value_min_max = (
+                        roots[idx],
+                        gumble_noises[idx],
+                        value_min_max_lst[idx],
+                    )
                     self.sequential_halving(root, gumble_noise, value_min_max)
-                self.log('change to phase: {}, top m action -> {}'
-                             ''.format(self.current_phase, self.current_num_top_actions), verbose=3)
+                self.log(
+                    "change to phase: {}, top m action -> {}"
+                    "".format(self.current_phase, self.current_num_top_actions),
+                    verbose=3,
+                )
 
                 # obtain the final results and infos
         search_root_values = np.asarray([root.get_value() for root in roots])
         search_root_policies = []
         for root, value_min_max in zip(roots, value_min_max_lst):
-            improved_policy = root.get_improved_policy(self.get_transformed_completed_Qs(root, value_min_max))
+            improved_policy = root.get_improved_policy(
+                self.get_transformed_completed_Qs(root, value_min_max)
+            )
             search_root_policies.append(improved_policy)
         search_root_policies = np.asarray(search_root_policies)
-        search_best_actions = np.asarray([root.selected_children_idx[0] for root in roots])
+        search_best_actions = np.asarray(
+            [root.selected_children_idx[0] for root in roots]
+        )
 
         if self.verbose:
-            self.log('Final Tree:', verbose=1)
+            self.log("Final Tree:", verbose=1)
             roots[0].print([])
-            self.log('search root value -> \t\t {} \n'
-                     'search root policy -> \t\t {} \n'
-                     'search best action -> \t\t {}'
-                     ''.format(search_root_values[0], search_root_policies[0], search_best_actions[0]),
-                     verbose=1, iteration_end=True)
+            self.log(
+                "search root value -> \t\t {} \n"
+                "search root policy -> \t\t {} \n"
+                "search best action -> \t\t {}"
+                "".format(
+                    search_root_values[0],
+                    search_root_policies[0],
+                    search_best_actions[0],
+                ),
+                verbose=1,
+                iteration_end=True,
+            )
         return search_root_values, search_root_policies, search_best_actions, mcts_info
 
     def sigma_transform(self, max_child_visit_count, value):
@@ -575,16 +751,22 @@ class PyMCTS(MCTS):
         completed_Qs = node.get_completed_Q(value_min_max.normalize)
         # calculate the transformed Q values
         max_child_visit_count = max([child.visit_count for child in node.children])
-        transformed_completed_Qs = self.sigma_transform(max_child_visit_count, completed_Qs)
-        self.log('Get transformed completed Q...\n'
-                 'completed Qs -> \t\t {} \n'
-                 'max visit cound of children -> \t {} \n'
-                 'transformed completed Qs -> \t {}'
-                 ''.format(completed_Qs, max_child_visit_count, transformed_completed_Qs), verbose=4)
+        transformed_completed_Qs = self.sigma_transform(
+            max_child_visit_count, completed_Qs
+        )
+        self.log(
+            "Get transformed completed Q...\n"
+            "completed Qs -> \t\t {} \n"
+            "max visit cound of children -> \t {} \n"
+            "transformed completed Qs -> \t {}"
+            "".format(completed_Qs, max_child_visit_count, transformed_completed_Qs),
+            verbose=4,
+        )
         return transformed_completed_Qs
 
-
-    def select_action(self, node: Node, value_min_max: MinMaxStats, gumbel_noises, simulation_idx):
+    def select_action(
+        self, node: Node, value_min_max: MinMaxStats, gumbel_noises, simulation_idx
+    ):
 
         def takeSecond(elem):
             return elem[1]
@@ -600,24 +782,36 @@ class PyMCTS(MCTS):
                     node.selected_children_idx.append(children_scores[a][0])
 
             action = self.do_equal_visit(node)
-            self.log('action select at root node, equal visit from {} -> {}'.format(node.selected_children_idx, action),
-                     verbose=4)
+            self.log(
+                "action select at root node, equal visit from {} -> {}".format(
+                    node.selected_children_idx, action
+                ),
+                verbose=4,
+            )
             return action
         else:
             ## for the non-root nodes, scores are calculated in another way
             # calculate the improved policy
-            improved_policy = node.get_improved_policy(self.get_transformed_completed_Qs(node, value_min_max))
+            improved_policy = node.get_improved_policy(
+                self.get_transformed_completed_Qs(node, value_min_max)
+            )
             children_visits = node.get_children_visits()
             # calculate the scores for each child
-            children_scores = [improved_policy[action] - children_visits[action] / (1 + node.get_children_visit_sum())
-                               for action in range(node.num_actions)]
+            children_scores = [
+                improved_policy[action]
+                - children_visits[action] / (1 + node.get_children_visit_sum())
+                for action in range(node.num_actions)
+            ]
             action = np.argmax(children_scores)
-            self.log('action select at non-root node: \n'
-                     'improved policy -> \t\t {} \n'
-                     'children visits -> \t\t {} \n'
-                     'children scores -> \t\t {} \n'
-                     'best action -> \t\t\t {} \n'
-                     ''.format(improved_policy, children_visits, children_scores, action), verbose=4)
+            self.log(
+                "action select at non-root node: \n"
+                "improved policy -> \t\t {} \n"
+                "children visits -> \t\t {} \n"
+                "children scores -> \t\t {} \n"
+                "best action -> \t\t\t {} \n"
+                "".format(improved_policy, children_visits, children_scores, action),
+                verbose=4,
+            )
             return action
 
     def back_propagate(self, search_path, leaf_node_value, value_min_max):
@@ -629,8 +823,11 @@ class PyMCTS(MCTS):
             node.visit_count += 1
 
             value = node.get_reward() + self.discount * value
-            self.log('Update min max value [{:.3f}, {:.3f}] by {:.3f}'
-                     ''.format(value_min_max.minimum, value_min_max.maximum, value), verbose=3)
+            self.log(
+                "Update min max value [{:.3f}, {:.3f}] by {:.3f}"
+                "".format(value_min_max.minimum, value_min_max.maximum, value),
+                verbose=3,
+            )
             value_min_max.update(value)
 
     def do_equal_visit(self, node: Node):
@@ -649,7 +846,9 @@ class PyMCTS(MCTS):
         if ready:
             self.current_phase += 1
             self.current_num_top_actions //= 2
-            assert self.current_num_top_actions == self.num_top_actions // (2 ** self.current_phase)
+            assert self.current_num_top_actions == self.num_top_actions // (
+                2**self.current_phase
+            )
 
             # update the total visit num for the next phase
             n = self.num_simulations
@@ -662,11 +861,16 @@ class PyMCTS(MCTS):
                 extra_visit = n - self.used_visit_num
             self.used_visit_num += extra_visit
             self.visit_num_for_next_phase += extra_visit
-            self.visit_num_for_next_phase = min(self.visit_num_for_next_phase, self.num_simulations)
+            self.visit_num_for_next_phase = min(
+                self.visit_num_for_next_phase, self.num_simulations
+            )
 
-            self.log('Be ready for the next gumble phase at iteration {}: \n'
-                     'current top action num is {}, visit {} times for next phase'
-                     ''.format(simulation_idx, current_m, self.visit_num_for_next_phase), verbose=3)
+            self.log(
+                "Be ready for the next gumble phase at iteration {}: \n"
+                "current top action num is {}, visit {} times for next phase"
+                "".format(simulation_idx, current_m, self.visit_num_for_next_phase),
+                verbose=3,
+            )
         return ready
 
     def sequential_halving(self, root, gumble_noise, value_min_max):
@@ -674,44 +878,79 @@ class PyMCTS(MCTS):
         children_prior = root.get_children_priors()
         if self.current_phase == 0:
             # the first phase: score = g + logits from all children
-            children_scores = np.asarray([gumble_noise[action] + children_prior[action]
-                                          for action in range(root.num_actions)])
-            sorted_action_index = np.argsort(children_scores)[::-1]  # sort the scores from large to small
+            children_scores = np.asarray(
+                [
+                    gumble_noise[action] + children_prior[action]
+                    for action in range(root.num_actions)
+                ]
+            )
+            sorted_action_index = np.argsort(children_scores)[
+                ::-1
+            ]  # sort the scores from large to small
             # obtain the top m actions
-            root.selected_children_idx = sorted_action_index[:self.current_num_top_actions]
+            root.selected_children_idx = sorted_action_index[
+                : self.current_num_top_actions
+            ]
 
-            self.log('Do sequential halving at phase {}: \n'
-                         'gumble noise -> \t\t {} \n'
-                         'child prior -> \t\t\t {} \n'
-                         'children scores -> \t\t {} \n'
-                         'the selected children indexes -> {}'
-                         ''.format(self.current_phase, gumble_noise, children_prior, children_scores,
-                                   root.selected_children_idx), verbose=3)
+            self.log(
+                "Do sequential halving at phase {}: \n"
+                "gumble noise -> \t\t {} \n"
+                "child prior -> \t\t\t {} \n"
+                "children scores -> \t\t {} \n"
+                "the selected children indexes -> {}"
+                "".format(
+                    self.current_phase,
+                    gumble_noise,
+                    children_prior,
+                    children_scores,
+                    root.selected_children_idx,
+                ),
+                verbose=3,
+            )
         else:
             assert len(root.selected_children_idx) > 1
             # the later phase: score = g + logits + sigma(hat_q) from the selected children
             # obtain the top m / 2 actions from the m actions
-            transformed_completed_Qs = self.get_transformed_completed_Qs(root, value_min_max)
+            transformed_completed_Qs = self.get_transformed_completed_Qs(
+                root, value_min_max
+            )
             # selected children index, eg: actions=[4, 1, 2, 5] if action space=8
             selected_children_idx = root.selected_children_idx
-            children_scores = np.asarray([gumble_noise[action] + children_prior[action] +
-                                          transformed_completed_Qs[action]
-                                          for action in selected_children_idx])
-            sorted_action_index = np.argsort(children_scores)[::-1]  # sort the scores from large to small
+            children_scores = np.asarray(
+                [
+                    gumble_noise[action]
+                    + children_prior[action]
+                    + transformed_completed_Qs[action]
+                    for action in selected_children_idx
+                ]
+            )
+            sorted_action_index = np.argsort(children_scores)[
+                ::-1
+            ]  # sort the scores from large to small
             # eg:   select 2 better action from actions=[4, 1, 2, 5], the sorted_action_index=[2, 0, 1, 3], the
             #       actual action is lst[2, 0] = [2, 4]
-            root.selected_children_idx = selected_children_idx[sorted_action_index[:self.current_num_top_actions]]
-            self.log('Do sequential halving at phase {}: \n'
-                         'selected children -> \t\t {} \n'
-                         'gumble noise -> \t\t {} \n'
-                         'child prior -> \t\t\t {} \n'
-                         'transformed completed Qs -> \t {} \n'
-                         'children scores -> \t\t {} \n'
-                         'the selected children indexes -> \t\t {}'
-                         ''.format(self.current_phase, selected_children_idx, gumble_noise[selected_children_idx],
-                                   children_prior[selected_children_idx],
-                                   transformed_completed_Qs[selected_children_idx], children_scores,
-                                   root.selected_children_idx), verbose=3)
+            root.selected_children_idx = selected_children_idx[
+                sorted_action_index[: self.current_num_top_actions]
+            ]
+            self.log(
+                "Do sequential halving at phase {}: \n"
+                "selected children -> \t\t {} \n"
+                "gumble noise -> \t\t {} \n"
+                "child prior -> \t\t\t {} \n"
+                "transformed completed Qs -> \t {} \n"
+                "children scores -> \t\t {} \n"
+                "the selected children indexes -> \t\t {}"
+                "".format(
+                    self.current_phase,
+                    selected_children_idx,
+                    gumble_noise[selected_children_idx],
+                    children_prior[selected_children_idx],
+                    transformed_completed_Qs[selected_children_idx],
+                    children_scores,
+                    root.selected_children_idx,
+                ),
+                verbose=3,
+            )
 
         best_action = root.selected_children_idx[0]
         return best_action

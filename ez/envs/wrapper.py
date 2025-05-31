@@ -14,7 +14,7 @@ class TimeLimit(gym.Wrapper):
         self._elapsed_steps += 1
         if self._elapsed_steps >= self._max_episode_steps:
             done = True
-            info['TimeLimit.truncated'] = True
+            info["TimeLimit.truncated"] = True
         return observation, reward, done, info
 
     def reset(self, **kwargs):
@@ -31,18 +31,22 @@ class NoopResetEnv(gym.Wrapper):
         self.noop_max = noop_max
         self.override_num_noops = None
         self.noop_action = 0
-        assert env.unwrapped.get_action_meanings()[0] == 'NOOP'
+        assert env.unwrapped.get_action_meanings()[0] == "NOOP"
 
     def reset(self, **kwargs):
-        """ Do no-op action for a number of steps in [1, noop_max]."""
+        """Do no-op action for a number of steps in [1, noop_max]."""
         self.env.reset(**kwargs)
         if self.override_num_noops is not None:
             noops = self.override_num_noops
         else:
             try:
-                noops = self.unwrapped.np_random.randint(1, self.noop_max + 1) #pylint: disable=E1101
+                noops = self.unwrapped.np_random.randint(
+                    1, self.noop_max + 1
+                )  # pylint: disable=E1101
             except:
-                noops = self.unwrapped.np_random.integers(1, self.noop_max + 1)  # pylint: disable=E1101
+                noops = self.unwrapped.np_random.integers(
+                    1, self.noop_max + 1
+                )  # pylint: disable=E1101
         assert noops > 0
         obs = None
         for _ in range(noops):
@@ -62,7 +66,7 @@ class EpisodicLifeEnv(gym.Wrapper):
         """
         gym.Wrapper.__init__(self, env)
         self.lives = 0
-        self.was_real_done  = True
+        self.was_real_done = True
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
@@ -97,8 +101,8 @@ class MaxAndSkipEnv(gym.Wrapper):
         """Return only every `skip`-th frame"""
         gym.Wrapper.__init__(self, env)
         # most recent raw observations (for max pooling across time steps)
-        self._obs_buffer = np.zeros((2,)+env.observation_space.shape, dtype=np.uint8)
-        self._skip       = skip
+        self._obs_buffer = np.zeros((2,) + env.observation_space.shape, dtype=np.uint8)
+        self._skip = skip
         self.max_frame = np.zeros(env.observation_space.shape, dtype=np.uint8)
 
     def step(self, action):
@@ -107,8 +111,10 @@ class MaxAndSkipEnv(gym.Wrapper):
         done = None
         for i in range(self._skip):
             obs, reward, done, info = self.env.step(action)
-            if i == self._skip - 2: self._obs_buffer[0] = obs
-            if i == self._skip - 1: self._obs_buffer[1] = obs
+            if i == self._skip - 2:
+                self._obs_buffer[0] = obs
+            if i == self._skip - 1:
+                self._obs_buffer[1] = obs
             total_reward += reward
             if done:
                 break
@@ -121,13 +127,14 @@ class MaxAndSkipEnv(gym.Wrapper):
     def reset(self, **kwargs):
         return self.env.reset(**kwargs)
 
-    def render(self, mode='human', **kwargs):
+    def render(self, mode="human", **kwargs):
         img = self.max_frame
         img = cv2.resize(img, (400, 400), interpolation=cv2.INTER_AREA).astype(np.uint8)
-        if mode == 'rgb_array':
+        if mode == "rgb_array":
             return img
-        elif mode == 'human':
+        elif mode == "human":
             from gym.envs.classic_control import rendering
+
             if self.viewer is None:
                 self.viewer = rendering.SimpleImageViewer()
             self.viewer.imshow(img)
@@ -185,6 +192,7 @@ class WarpFrame(gym.ObservationWrapper):
             obs = obs.copy()
             obs[self._key] = frame
         return obs
+
 
 class DMC_Obs_Wrapper(gym.ObservationWrapper):
 

@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 # Post Activated Residual block
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, downsample=None, stride=1):
@@ -33,6 +34,7 @@ class ResidualBlock(nn.Module):
         out += identity
         out = nn.functional.relu(out)
         return out
+
 
 # Residual block
 class FCResidualBlock(nn.Module):
@@ -81,13 +83,14 @@ def mlp(
     for i in range(len(sizes) - 1):
         if i < len(sizes) - 2:
             act = activation
-            layers += [nn.Linear(sizes[i], sizes[i + 1]),
-                       nn.BatchNorm1d(sizes[i + 1]),
-                       act()]
+            layers += [
+                nn.Linear(sizes[i], sizes[i + 1]),
+                nn.BatchNorm1d(sizes[i + 1]),
+                act(),
+            ]
         else:
             act = output_activation
-            layers += [nn.Linear(sizes[i], sizes[i + 1]),
-                       act()]
+            layers += [nn.Linear(sizes[i], sizes[i + 1]), act()]
 
     if init_zero:
         layers[-2].weight.data.fill_(0)

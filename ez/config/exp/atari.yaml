@@ -148,7 +148,7 @@ model:
 # worker process allocation
 actors:
   data_worker: 1
-  batch_worker: 8  # oriMCTS 16
+  batch_worker: 1  # oriMCTS 16
 
 # wandb
 wandb:

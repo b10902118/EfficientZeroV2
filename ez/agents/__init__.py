@@ -8,7 +8,7 @@ from ez.agents.ez_dmc_image import EZDMCImageAgent
 from ez.agents.ez_dmc_state import EZDMCStateAgent
 
 names = {
-    'atari_agent': EZAtariAgent,
-    'dmc_image_agent': EZDMCImageAgent,
-    'dmc_state_agent': EZDMCStateAgent,
+    "atari_agent": EZAtariAgent,
+    "dmc_image_agent": EZDMCImageAgent,
+    "dmc_state_agent": EZDMCStateAgent,
 }

@@ -11,33 +11,41 @@ from ez.utils.format import arr_to_str
 
 
 def make_envs(game_setting, game_name, num_envs, seed, save_path=None, **kwargs):
-    assert game_setting in ['Atari', 'DMC', 'Gym']
-    if game_setting == 'Atari':
+    assert game_setting in ["Atari", "DMC", "Gym"]
+    if game_setting == "Atari":
         _env_fn = make_atari
-    elif game_setting == 'Gym':
+    elif game_setting == "Gym":
         _env_fn = make_gym
-    elif game_setting == 'DMC':
+    elif game_setting == "DMC":
         _env_fn = make_dmc
+    elif game_setting == "suika":
+        _env_fn = make_suika
     else:
         raise NotImplementedError()
 
-    if game_setting == 'DMC':
+    if game_setting == "DMC":
         seed = random.randint(1, 1000)
 
-    envs = [_env_fn(game_name,
-                    seed=i + seed,
-                    # seed=seed,
-                    save_path=save_path, **kwargs) for i in range(num_envs)]
+    envs = [
+        _env_fn(
+            game_name,
+            seed=i + seed,
+            # seed=seed,
+            save_path=save_path,
+            **kwargs
+        )
+        for i in range(num_envs)
+    ]
     return envs
 
 
 def make_env(game_setting, game_name, num_envs, seed, save_path=None, **kwargs):
-    assert game_setting in ['Atari', 'DMC', 'Gym']
-    if game_setting == 'Atari':
+    assert game_setting in ["Atari", "DMC", "Gym"]
+    if game_setting == "Atari":
         _env_fn = make_atari
-    elif game_setting == 'Gym':
+    elif game_setting == "Gym":
         _env_fn = make_gym
-    elif game_setting == 'DMC':
+    elif game_setting == "DMC":
         _env_fn = make_dmc
     else:
         raise NotImplementedError()
@@ -71,14 +79,18 @@ def make_atari(game_name, seed, save_path=None, **kwargs):
             :param seed:
     """
     # params
-    env_id = game_name + 'NoFrameskip-v4'
-    gray_scale = kwargs.get('gray_scale')
-    obs_to_string = kwargs.get('obs_to_string')
-    skip = kwargs['n_skip'] if kwargs.get('n_skip') else 4
-    obs_shape = kwargs['obs_shape'] if kwargs.get('obs_shape') else [3, 96, 96]
-    max_episode_steps = kwargs['max_episode_steps'] if kwargs.get('max_episode_steps') else 108000 // skip
-    episodic_life = kwargs.get('episodic_life')
-    clip_reward = kwargs.get('clip_reward')
+    env_id = game_name + "NoFrameskip-v4"
+    gray_scale = kwargs.get("gray_scale")
+    obs_to_string = kwargs.get("obs_to_string")
+    skip = kwargs["n_skip"] if kwargs.get("n_skip") else 4
+    obs_shape = kwargs["obs_shape"] if kwargs.get("obs_shape") else [3, 96, 96]
+    max_episode_steps = (
+        kwargs["max_episode_steps"]
+        if kwargs.get("max_episode_steps")
+        else 108000 // skip
+    )
+    episodic_life = kwargs.get("episodic_life")
+    clip_reward = kwargs.get("clip_reward")
 
     env = gym.make(env_id)
 
@@ -111,9 +123,9 @@ def make_atari(game_name, seed, save_path=None, **kwargs):
 
 
 def make_gym(game_name, seed, save_path=None, **kwargs):
-    save_path = kwargs.get('save_path')
-    obs_to_string = kwargs.get('obs_to_string')
-    skip = kwargs['n_skip'] if kwargs.get('n_skip') else 4
+    save_path = kwargs.get("save_path")
+    obs_to_string = kwargs.get("obs_to_string")
+    skip = kwargs["n_skip"] if kwargs.get("n_skip") else 4
 
     env = gym.make(game_name)
     env = GymWrapper(env, obs_to_string=obs_to_string)
@@ -144,18 +156,18 @@ def make_dmc(game_name, seed, save_path=None, **kwargs):
 
     """
     # params
-    if 'CMU' in game_name:
-        domain_name, task_name = game_name.rsplit('_', 1)
+    if "CMU" in game_name:
+        domain_name, task_name = game_name.rsplit("_", 1)
     else:
-        domain_name, task_name = game_name.split('_', 1)
-    image_based = kwargs.get('image_based')
-    obs_shape = kwargs['obs_shape'] if kwargs.get('obs_shape') else [3, 96, 96]
-    skip = kwargs['n_skip'] if kwargs.get('n_skip') else 2
-    max_episode_steps = kwargs['max_episode_steps'] // skip
-    clip_reward = kwargs.get('clip_reward')
-    obs_to_string = kwargs.get('obs_to_string')
+        domain_name, task_name = game_name.split("_", 1)
+    image_based = kwargs.get("image_based")
+    obs_shape = kwargs["obs_shape"] if kwargs.get("obs_shape") else [3, 96, 96]
+    skip = kwargs["n_skip"] if kwargs.get("n_skip") else 2
+    max_episode_steps = kwargs["max_episode_steps"] // skip
+    clip_reward = kwargs.get("clip_reward")
+    obs_to_string = kwargs.get("obs_to_string")
     # fix the bug of env (from the paper DrQv2)
-    camera_id = 2 if 'quadruped' in domain_name else 0
+    camera_id = 2 if "quadruped" in domain_name else 0
 
     # # make env
     env = dmc2gym.make(
@@ -180,4 +192,13 @@ def make_dmc(game_name, seed, save_path=None, **kwargs):
 
     # your wrapper
     env = DMCWrapper(env, obs_to_string=obs_to_string, clip_reward=clip_reward)
+    return env
+
+
+def make_suika(game_name, seed, save_path=None, **kwargs):
+    from ez.envs.suika.suika_gym import SuikaEnv
+    from ez.envs.suika.wrappers import CoordSizeToImage
+
+    env = SuikaEnv(seed=seed, n_frames=1)
+    env = CoordSizeToImage(env)
     return env

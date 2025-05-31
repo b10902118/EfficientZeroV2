@@ -16,6 +16,7 @@ import subprocess as sp
 
 from ray.util.queue import Queue
 
+
 class RayQueue(object):
     def __init__(self, threshold=15, size=20):
         self.threshold = threshold
@@ -54,7 +55,6 @@ class PreQueue(object):
         return self.queue.qsize()
 
 
-
 class LinearSchedule(object):
     def __init__(self, schedule_timesteps, final_p, initial_p=1.0):
         """Linear interpolation between initial_p and final_p over
@@ -83,30 +83,46 @@ class LinearSchedule(object):
 def transform_one2(x):
     return torch.sign(x) * (torch.sqrt(torch.abs(x) + 1.0) - 1) + 0.001 * x
 
+
 def transform_one(x):
     return np.sign(x) * (np.sqrt(np.abs(x) + 1.0) - 1) + 0.001 * x
+
 
 def atanh(x):
     return 0.5 * (torch.log(1 + x + 1e-6) - torch.log(1 - x + 1e-6))
 
+
 def symlog(x):
     return torch.sign(x) * torch.log(torch.abs(x) + 1)
 
+
 def symexp(x):
     return torch.sign(x) * (torch.exp(torch.abs(x)) - 1)
+
 
 class DiscreteSupport(object):
     def __init__(self, config=None):
         if config:
             # assert min < max
             self.env = config.env.env
-            if self.env in ['DMC', 'Gym']:
-                assert config.model.reward_support.bins == config.model.value_support.bins
+            if self.env in ["DMC", "Gym"]:
+                assert (
+                    config.model.reward_support.bins == config.model.value_support.bins
+                )
                 self.size = config.model.reward_support.bins
             else:
-                assert config.model.reward_support.range[0] == config.model.value_support.range[0]
-                assert config.model.reward_support.range[1] == config.model.value_support.range[1]
-                assert config.model.reward_support.scale == config.model.value_support.scale
+                assert (
+                    config.model.reward_support.range[0]
+                    == config.model.value_support.range[0]
+                )
+                assert (
+                    config.model.reward_support.range[1]
+                    == config.model.value_support.range[1]
+                )
+                assert (
+                    config.model.reward_support.scale
+                    == config.model.value_support.scale
+                )
                 self.min = config.model.reward_support.range[0]
                 self.max = config.model.reward_support.range[1]
                 self.scale = config.model.reward_support.scale
@@ -115,19 +131,19 @@ class DiscreteSupport(object):
 
     @staticmethod
     def scalar_to_vector(x, **kwargs):
-        """ Reference from MuZerp: Appendix F => Network Architecture
+        """Reference from MuZerp: Appendix F => Network Architecture
         & Appendix A : Proposition A.2 in https://arxiv.org/pdf/1805.11593.pdf (Page-11)
         """
-        env = kwargs['env']
-        x_min = kwargs['range'][0]
-        x_max = kwargs['range'][1]
+        env = kwargs["env"]
+        x_min = kwargs["range"][0]
+        x_max = kwargs["range"][1]
 
         epsilon = 0.001
 
-        if env in ['DMC', 'Gym']:
+        if env in ["DMC", "Gym"]:
             x_min = transform_one(x_min)
             x_max = transform_one(x_max)
-            bins = kwargs['bins']
+            bins = kwargs["bins"]
             scale = (x_max - x_min) / (bins - 1)
             x_range = np.arange(x_min, x_max + scale, scale)
             sign = torch.ones(x.shape).float().to(x.device)
@@ -142,11 +158,17 @@ class DiscreteSupport(object):
             p_high = x - x_low_idx
             p_low = 1 - p_high
 
-            target = torch.zeros(tuple(x.shape) + (bins,), dtype=p_high.dtype).to(x.device)
-            target.scatter_(len(x.shape), x_high_idx.long().unsqueeze(-1), p_high.unsqueeze(-1))
-            target.scatter_(len(x.shape), x_low_idx.long().unsqueeze(-1), p_low.unsqueeze(-1))
+            target = torch.zeros(tuple(x.shape) + (bins,), dtype=p_high.dtype).to(
+                x.device
+            )
+            target.scatter_(
+                len(x.shape), x_high_idx.long().unsqueeze(-1), p_high.unsqueeze(-1)
+            )
+            target.scatter_(
+                len(x.shape), x_low_idx.long().unsqueeze(-1), p_low.unsqueeze(-1)
+            )
         else:
-            scale = kwargs['scale']
+            scale = kwargs["scale"]
             x_range = np.arange(x_min, x_max + scale, scale)
             x_size = len(x_range)
 
@@ -171,18 +193,18 @@ class DiscreteSupport(object):
 
     @staticmethod
     def vector_to_scalar(logits, **kwargs):
-        """ Reference from MuZerp: Appendix F => Network Architecture
+        """Reference from MuZerp: Appendix F => Network Architecture
         & Appendix A : Proposition A.2 in https://arxiv.org/pdf/1805.11593.pdf (Page-11)
         """
-        x_min = kwargs['range'][0]
-        x_max = kwargs['range'][1]
-        env = kwargs['env']
+        x_min = kwargs["range"][0]
+        x_max = kwargs["range"][1]
+        env = kwargs["env"]
         epsilon = 0.001
 
-        if env in ['DMC', 'Gym']:
+        if env in ["DMC", "Gym"]:
             x_min = transform_one(x_min)
             x_max = transform_one(x_max)
-            bins = kwargs['bins']
+            bins = kwargs["bins"]
             scale = (x_max - x_min) / (bins - 1)
             x_range = np.arange(x_min, x_max + scale, scale)
 
@@ -196,11 +218,18 @@ class DiscreteSupport(object):
 
             sign = torch.ones(value.shape).float().to(value.device)
             sign[value < 0] = -1.0
-            output = (((torch.sqrt(1 + 4 * epsilon * (torch.abs(value) * scale + 1 + epsilon)) - 1) / (
-                    2 * epsilon)) ** 2 - 1)
+            output = (
+                (
+                    torch.sqrt(
+                        1 + 4 * epsilon * (torch.abs(value) * scale + 1 + epsilon)
+                    )
+                    - 1
+                )
+                / (2 * epsilon)
+            ) ** 2 - 1
             output = sign * output
         else:
-            scale = kwargs['scale']
+            scale = kwargs["scale"]
             x_range = np.arange(x_min, x_max + scale, scale)
             value_probs = torch.softmax(logits, dim=-1)  # training & test
             # value_probs = logits  # debug
@@ -211,12 +240,15 @@ class DiscreteSupport(object):
 
             sign = torch.ones(value.shape).float().to(value.device)
             sign[value < 0] = -1.0
-            output = (((torch.sqrt(1 + 4 * epsilon * (torch.abs(value) + 1 + epsilon)) - 1) / (2 * epsilon)) ** 2 - 1)
+            output = (
+                (torch.sqrt(1 + 4 * epsilon * (torch.abs(value) + 1 + epsilon)) - 1)
+                / (2 * epsilon)
+            ) ** 2 - 1
             output = sign * output * scale
 
             nan_part = torch.isnan(output)
-            output[nan_part] = 0.
-            output[torch.abs(output) < epsilon] = 0.
+            output[nan_part] = 0.0
+            output[torch.abs(output) < epsilon] = 0.0
         return output
 
 
@@ -227,7 +259,7 @@ def arr_to_str(arr):
     :param arr:
     :return:
     """
-    img_str = cv2.imencode('.jpg', arr)[1].tobytes()
+    img_str = cv2.imencode(".jpg", arr)[1].tobytes()
 
     return img_str
 
@@ -255,7 +287,7 @@ def formalize_obs_lst(obs_lst, image_based, already_prepare=False):
     # obs_lst = prepare_obs_lst(obs_lst, image_based)
     obs_lst = np.asarray(obs_lst)
     if image_based:
-        obs_lst = torch.from_numpy(obs_lst).cuda().float() / 255.
+        obs_lst = torch.from_numpy(obs_lst).cuda().float() / 255.0
         obs_lst = torch.moveaxis(obs_lst, -1, 2)
         shape = obs_lst.shape
         obs_lst = obs_lst.reshape((shape[0], -1, shape[-2], shape[-1]))
@@ -323,27 +355,34 @@ def pad_and_mask(trajectories, pad_value=0, is_action=False):
     padded_trajectories = []
     for i, traj in enumerate(trajectories):
         if is_action:
-            padded_traj = torch.nn.functional.pad(traj, (0, max_len - len(traj)), value=pad_value)
+            padded_traj = torch.nn.functional.pad(
+                traj, (0, max_len - len(traj)), value=pad_value
+            )
         else:
-            padded_traj = torch.nn.functional.pad(traj, (0, 0, 0, 0, 0, 0, 0, max_len - len(traj)), value=pad_value)
-        masks[i, :len(traj)] = False
+            padded_traj = torch.nn.functional.pad(
+                traj, (0, 0, 0, 0, 0, 0, 0, max_len - len(traj)), value=pad_value
+            )
+        masks[i, : len(traj)] = False
         padded_trajectories.append(padded_traj)
 
     try:
         padded_trajectories = torch.stack(padded_trajectories)
     except:
         import ipdb
+
         ipdb.set_trace()
-        print('false')
+        print("false")
     return padded_trajectories, masks
 
 
 def init_logger(base_path):
-    formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s][%(filename)s>%(funcName)s] ==> %(message)s')
-    for mode in ['Train', 'Eval']:
-        file_path = os.path.join(base_path, mode + '.log')
+    formatter = logging.Formatter(
+        "[%(asctime)s][%(name)s][%(levelname)s][%(filename)s>%(funcName)s] ==> %(message)s"
+    )
+    for mode in ["Train", "Eval"]:
+        file_path = os.path.join(base_path, mode + ".log")
         logger = logging.getLogger(mode)
-        handler = logging.FileHandler(file_path, mode='a')
+        handler = logging.FileHandler(file_path, mode="a")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG)
@@ -353,7 +392,9 @@ def get_ddp_model_weights(ddp_model):
     """
     Get weights of a DDP model
     """
-    return {'.'.join(k.split('.')[2:]): v.cpu() for k, v in ddp_model.state_dict().items()}
+    return {
+        ".".join(k.split(".")[2:]): v.cpu() for k, v in ddp_model.state_dict().items()
+    }
 
 
 def allocate_gpu(rank, gpu_lst, worker_name):
@@ -367,11 +408,15 @@ def allocate_gpu(rank, gpu_lst, worker_name):
     available_memory_list[1] -= 6000  # avoid using gpu 1, which is left for training
     max_index = available_memory_list.index(max(available_memory_list))
     if available_memory_list[max_index] < 2000:
-        print(f"[{worker_name} worker GPU]******************* Warning: Low video ram (max remaining "
-              f"{available_memory_list[max_index]}) *******************")
+        print(
+            f"[{worker_name} worker GPU]******************* Warning: Low video ram (max remaining "
+            f"{available_memory_list[max_index]}) *******************"
+        )
     torch.cuda.set_device(max_index)
-    print(f"[{worker_name} worker GPU] {worker_name} worker GPU {rank} at process {os.getpid()}"
-          f" will use GPU {max_index}. Remaining memory before allocation {available_memory_list}")
+    print(
+        f"[{worker_name} worker GPU] {worker_name} worker GPU {rank} at process {os.getpid()}"
+        f" will use GPU {max_index}. Remaining memory before allocation {available_memory_list}"
+    )
 
 
 def get_gpu_memory():
@@ -382,7 +427,7 @@ def get_gpu_memory():
 
     # internal tool function
     def _output_to_list(x):
-        return x.decode('ascii').split('\n')[:-1]
+        return x.decode("ascii").split("\n")[:-1]
 
     command = "nvidia-smi --query-gpu=memory.free --format=csv"
     memory_free_info = _output_to_list(sp.check_output(command.split()))[1:]
@@ -401,6 +446,7 @@ def set_seed(seed):
 
 def profile(func):
     from line_profiler import LineProfiler
+
     def wrapper(*args, **kwargs):
         lp = LineProfiler()
         lp_wrapper = lp(func)
@@ -408,10 +454,11 @@ def profile(func):
         lp.print_stats()
 
         return result
+
     return wrapper
 
 
-if __name__=='__main__':
+if __name__ == "__main__":
     support = DiscreteSupport()
     # dict = {
     #     'range': [-2, 2],
@@ -419,12 +466,7 @@ if __name__=='__main__':
     #     'env': 'DMC',
     #     'bins': 51
     # }
-    dict = {
-        'range': [-299, 299],
-        'scale': 0.01,
-        'env': 'DMC',
-        'bins': 51
-    }
+    dict = {"range": [-299, 299], "scale": 0.01, "env": "DMC", "bins": 51}
     # dict = {
     #     'range': [-300, 300],
     #     'scale': 1,
@@ -433,14 +475,13 @@ if __name__=='__main__':
     # }
     value = np.ones((2, 1)) * 15
     value = torch.from_numpy(value).float().cuda()
-    print(f'input={value}')
+    print(f"input={value}")
     vec = support.scalar_to_vector(value, **dict).squeeze()
     vec2 = support.scalar_to_vector2(value, **dict).squeeze()
-    print(f'input={value}')
-    print(f'support={vec}, support2={vec2}')
+    print(f"input={value}")
+    print(f"support={vec}, support2={vec2}")
     val = support.vector_to_scalar(vec, **dict)
     val2 = support.vector_to_scalar2(vec, **dict)
-    print(f'support={vec}, support2={vec2}')
-    print(f'input={value}')
-    print(f'val={val}')
-
+    print(f"support={vec}, support2={vec2}")
+    print(f"input={value}")
+    print(f"val={val}")

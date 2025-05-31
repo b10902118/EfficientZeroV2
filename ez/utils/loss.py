@@ -17,8 +17,8 @@ def cosine_similarity_loss(f1, f2):
     """Cosine Consistency loss function: similarity loss
     Parameters
     """
-    f1 = F.normalize(f1, p=2., dim=-1, eps=1e-5)
-    f2 = F.normalize(f2, p=2., dim=-1, eps=1e-5)
+    f1 = F.normalize(f1, p=2.0, dim=-1, eps=1e-5)
+    f2 = F.normalize(f2, p=2.0, dim=-1, eps=1e-5)
     return -(f1 * f2).sum(dim=1)
 
 
@@ -36,14 +36,18 @@ def Value_loss(preds, targets, config):
     iql_weight = config.train.IQL_weight
     if not config.train.use_IQL:
         iql_weight = 0.5
-    if config.model.value_support.type == 'symlog':
+    if config.model.value_support.type == "symlog":
         loss_func = symlog_loss
         reformed_values = symexp(preds).squeeze()
         target_supports = targets
-    elif config.model.value_support.type == 'support':
+    elif config.model.value_support.type == "support":
         loss_func = kl_loss
-        reformed_values = DiscreteSupport.vector_to_scalar(preds, **config.model.value_support).squeeze()
-        target_supports = DiscreteSupport.scalar_to_vector(targets, **config.model.value_support)
+        reformed_values = DiscreteSupport.vector_to_scalar(
+            preds, **config.model.value_support
+        ).squeeze()
+        target_supports = DiscreteSupport.scalar_to_vector(
+            targets, **config.model.value_support
+        )
     else:
         raise NotImplementedError
 
@@ -53,20 +57,27 @@ def Value_loss(preds, targets, config):
     value_loss = (value_weight * loss_func(preds, target_supports)).mean(0)
     return value_loss
 
+
 def set_requires_grad(net, value):
-	"""Enable/disable gradients for a given (sub)network."""
-	for param in net.parameters():
-		param.requires_grad_(value)
+    """Enable/disable gradients for a given (sub)network."""
+    for param in net.parameters():
+        param.requires_grad_(value)
 
 
-
-def continuous_loss(policy, target_action, target_policy, target_best_action, mask=None, distribution_type='squashed_gaussian'):
+def continuous_loss(
+    policy,
+    target_action,
+    target_policy,
+    target_best_action,
+    mask=None,
+    distribution_type="squashed_gaussian",
+):
     action_dim = policy.size(1) // 2
     n_branches = target_policy.size(1)
-    if distribution_type == 'squashed_gaussian':
+    if distribution_type == "squashed_gaussian":
         mean, std = policy[:, :action_dim], policy[:, action_dim:]
         distr = SquashedNormal(mean, std)
-    elif distribution_type == 'truncated_gaussian':
+    elif distribution_type == "truncated_gaussian":
         mean, std = policy[:, :action_dim], policy[:, action_dim:]
         distr = torchrl.modules.TruncatedNormal(mean, std)
     else:
@@ -80,21 +91,23 @@ def continuous_loss(policy, target_action, target_policy, target_best_action, ma
 
     # simple pi loss in Eq. 7 of the paper
     target_best_action = target_best_action.clip(-0.999, 0.999)
-    if distribution_type != 'truncated_gaussian':
-        simplepi_loss = -distr.log_prob(target_best_action).sum(-1)    # simple policy loss of Gumbel MuZero
+    if distribution_type != "truncated_gaussian":
+        simplepi_loss = -distr.log_prob(target_best_action).sum(
+            -1
+        )  # simple policy loss of Gumbel MuZero
     else:
         simplepi_loss = -distr.log_prob(target_best_action)
 
-    # choose action loss according to action dim 
+    # choose action loss according to action dim
     if action_dim == 1:
         loss = fullpi_loss
     else:
         loss = simplepi_loss
 
-    if distribution_type in ['squashed_gaussian', 'truncated_gaussian']:
+    if distribution_type in ["squashed_gaussian", "truncated_gaussian"]:
         ent_action = distr.rsample((1024,))
         ent_action = ent_action.clip(-0.999, 0.999)
-        if distribution_type != 'truncated_gaussian':
+        if distribution_type != "truncated_gaussian":
             ent_log_prob = distr.log_prob(ent_action).sum(-1)
         else:
             ent_log_prob = distr.log_prob(ent_action)
@@ -110,7 +123,7 @@ def continuous_loss(policy, target_action, target_policy, target_best_action, ma
 
 
 class BarlowLoss(nn.Module):
-    def __init__(self, lmbda, reduction='mean'):
+    def __init__(self, lmbda, reduction="mean"):
         super().__init__()
         self.lmbda = lmbda
         self.reduction = reduction
@@ -140,7 +153,7 @@ class BarlowLoss(nn.Module):
 
         loss = on_diag + self.lmbda * off_diag
 
-        if self.reduction == 'mean':
+        if self.reduction == "mean":
             return loss
         else:
             raise ValueError

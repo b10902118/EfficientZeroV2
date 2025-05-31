@@ -199,6 +199,6 @@ def make_suika(game_name, seed, save_path=None, **kwargs):
     from ez.envs.suika.suika_gym import SuikaEnv
     from ez.envs.suika.wrappers import CoordSizeToImage
 
-    env = SuikaEnv(seed=seed, n_frames=1)
+    env = SuikaEnv(seed=42, n_frames=1)
     env = CoordSizeToImage(env)
     return env

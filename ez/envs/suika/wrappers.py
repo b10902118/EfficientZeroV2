@@ -29,20 +29,14 @@ class CoordSizeToImage(gym.Wrapper):
         # [0, (horizontal_wall_thickness - 1)] for wall
         self.fruit_horizontal_offset = self.horizontal_wall_thickness
         self.wall_height_offset = round(SRC_WALL_HEIGHT_OFFSET * self.resize_ratio)
-        self.observation_space = spaces.Dict(
-            {
-                "boards": spaces.Box(
-                    low=0,
-                    high=255,
-                    shape=(
-                        self.n_frames,  # [C, H, W]
-                        *image_size,
-                    ),
-                    dtype=np.uint8,
-                ),
-                "cur_fruit": spaces.Discrete(5),
-                "next_fruit": spaces.Discrete(5),
-            }
+        self.observation_space = spaces.Box(
+            low=0,
+            high=255,
+            shape=(
+                self.n_frames,  # [C, H, W]
+                *image_size,
+            ),
+            dtype=np.uint8,
         )
 
         self.max_depth = self.image_size[0] - self.wall_height_offset - WALL_THICKNESS
@@ -106,12 +100,13 @@ class CoordSizeToImage(gym.Wrapper):
             .astype(np.uint8)
         )
 
-        # SB3 will handle conversion to tensor
+        observation["boards"][0][0][0] = observation["cur_fruit"]
+        observation["boards"][0][0][1] = observation["next_fruit"]
 
-        return observation
+        return observation["boards"]
 
     def shape_reward(self, obs, reward, info):
-        board = obs["boards"][-1]
+        board = obs[-1]
         first_nonzeros = np.argmax(board.T != 0, axis=-1)
         depths = first_nonzeros - self.wall_height_offset
         depths = depths[
@@ -146,11 +141,11 @@ class CoordSizeToImage(gym.Wrapper):
         obs = self.observation(obs)
         shaped_reward = self.shape_reward(obs, reward, info)
 
-        return obs, shaped_reward, terminated, truncated, info
+        return obs, shaped_reward, terminated, info
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
         obs = self.observation(obs)
         self.prev_min_depth = self.max_depth
         self.prev_mean_depth = self.max_depth
-        return obs, info
+        return obs  # , info
